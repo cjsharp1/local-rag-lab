@@ -1,0 +1,56 @@
+{
+  "name": "local-rag-lab",
+  "version": "0.1.0",
+  "description": "A local teaching lab for retrieval-augmented generation: one question answered three ways (no retrieval, pre-retrieved chunks, a search tool the model calls), side by side, with every retrieved chunk, score and token visible. Runs on your machine through Ollama. No API key, no hosted model.",
+  "main": "server/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "tsc -p tsconfig.client.json && tsx watch server/index.ts",
+    "build": "tsc && tsc -p tsconfig.client.json",
+    "build:client": "tsc -p tsconfig.client.json",
+    "watch:client": "tsc -p tsconfig.client.json --watch",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "audit-comments": "tsx scripts/audit-comments.ts",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "check-env": "tsx scripts/check-env.ts",
+    "index": "tsx scripts/index.ts",
+    "tool-server:http": "tsx tool-server/http.ts",
+    "try-tools": "tsx scripts/try-tools.ts",
+    "try-model": "tsx scripts/try-model.ts",
+    "ask": "tsx scripts/ask.ts",
+    "compare": "tsx scripts/compare.ts",
+    "eval": "tsx scripts/eval.ts"
+  },
+  "keywords": [
+    "rag",
+    "retrieval-augmented-generation",
+    "embeddings",
+    "vector-search",
+    "bm25",
+    "ollama",
+    "local-llm",
+    "mcp",
+    "model-context-protocol",
+    "learning"
+  ],
+  "author": "Chris Sharp",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/node": "^2.1.2",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
