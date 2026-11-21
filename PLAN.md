@@ -5,9 +5,9 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–1 done.** The skeleton is in
-place; no lab code yet. Sections below
-will be corrected wherever a build step proves them wrong.
+Status: **all decisions made (§13); steps 0–2 done; the corpus awaits
+your review before step 3.** No lab code yet. Sections below will be
+corrected wherever a build step proves them wrong.
 
 Conventions in this document:
 
@@ -361,7 +361,15 @@ for: long policies with fee tables, rules with codes and numbers, route
 guides that cross-reference each other, and rules that changed this
 season.
 
-### 5.2 Documents (about 25, **estimate** 30–40k words, about 250 chunks at default settings)
+### 5.2 Documents (25, 26,586 words, measured at step 2)
+
+The draft estimated 30–40k words and about 250 chunks. Measured: 25
+documents, 26,586 words, about 141k characters, which is about 35k
+tokens by the chars ÷ 4 heuristic. That's roughly **120–150 chunks** at
+the default chunk size (**estimate**; counted at step 3). The corpus is
+smaller than planned, and the brute-force search gets correspondingly
+cheaper. The traps, not the size, are what make retrieval differ between
+configurations; step 7 measures whether they do.
 
 | Group | Examples | Traps planted on purpose |
 |---|---|---|
