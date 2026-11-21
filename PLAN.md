@@ -5,8 +5,8 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–2 done; the corpus awaits
-your review before step 3.** No lab code yet. Sections below will be
+Status: **all decisions made (§13); steps 0–3 done.** The corpus is
+approved and the chunker is built and tested. Sections below will be
 corrected wherever a build step proves them wrong.
 
 Conventions in this document:
@@ -180,6 +180,7 @@ local-rag-lab/
 │   ├── schema.sql             chunks, vectors, FTS5 table, index settings, corpus hash
 │   └── index-<strategy>.db    built by `npm run index`, one per chunking strategy, gitignored
 ├── tool-server/
+│   ├── corpus.ts              reads corpus/*.md (skipping README.md) into normalized documents
 │   ├── db.ts
 │   ├── embed.ts               one function: text → vector, via Ollama
 │   ├── search/
@@ -218,6 +219,7 @@ local-rag-lab/
 ├── scripts/
 │   ├── audit-comments.ts      copied first, at step 1
 │   ├── check-env.ts
+│   ├── chunk-report.ts        chunk counts and the longest and shortest chunks per strategy
 │   ├── index.ts               chunk + embed + store → data/index-<strategy>.db (all three by default)
 │   ├── project.ts             PCA → 2D coordinates stored in the index
 │   ├── try-tools.ts
@@ -276,11 +278,39 @@ Three strategies, chosen at index time:
 | Strategy | How | What it teaches |
 |---|---|---|
 | `fixed` | N tokens (estimated at chars ÷ 4) with M overlap, ignoring structure | the baseline everyone starts with, and how it splits tables and procedures |
-| `heading` | split on Markdown headings, then by size inside long sections | structure-aware chunking; fewer orphaned chunks |
+| `heading` | whole consecutive sections packed up to N tokens; a section is cut only when it alone exceeds N, preferring a paragraph break, then a line break (table rows stay whole), then a sentence end | structure-aware chunking: a chunk never cuts a section that fits |
 | `heading+context` | `heading`, plus the document title and heading path prepended to each chunk before embedding | the cheap version of "contextual retrieval": a chunk that says "this fee" now also says which fee |
 
-Defaults: `heading`, about 300 tokens, 50 overlap (**estimate**, tuned
-once in step 7 against the scorecard, then frozen and recorded).
+Size presets, the same for every strategy (decision #6), in estimated
+tokens: **small** 150/25 overlap, **default** 300/50, **large** 600/100.
+Defaults: `heading`, `default` (tuned once in step 7 against the
+scorecard, then frozen and recorded).
+
+**Changed at step 3: heading packs whole sections.** The draft split at
+every heading. Measured on this corpus, that made 307 chunks averaging
+116 tokens at the default size, against 148 averaging 279 for `fixed`:
+thirteen short regulations and two dozen FAQ answers each became a
+chunk, and top-4 would have handed the model a third as much text as
+`fixed` does, which would make the strategies incomparable. Packing
+whole consecutive sections up to the size limit gives 164 chunks
+averaging 215 tokens. Empty headings ("## Day by day" followed straight
+by "### Day 1") merge into the next section. The three split-context
+sections are each longer than one chunk at every preset, so they're
+still cut, and in every case the chunk holding the answer doesn't name
+its subject (checked at step 3).
+
+Measured chunk counts (`npm run chunk-report`):
+
+| Strategy | small | default | large |
+|---|---|---|---|
+| `fixed` | 288 | 148 | 79 |
+| `heading`, `heading+context` | 354 | 164 | 81 |
+
+Overlap rules: `fixed` starts the next chunk at the first word that
+begins within the overlap. The heading strategies prefer the first line
+that begins within it, and skip the overlap when a cut falls on a line
+break and no line begins inside it. So an overlap never starts halfway
+along a table row.
 
 ### 4.2 Search (`tool-server/search/`)
 
@@ -365,8 +395,8 @@ season.
 
 The draft estimated 30–40k words and about 250 chunks. Measured: 25
 documents, 26,586 words, about 141k characters, which is about 35k
-tokens by the chars ÷ 4 heuristic. That's roughly **120–150 chunks** at
-the default chunk size (**estimate**; counted at step 3). The corpus is
+tokens by the chars ÷ 4 heuristic. Counted at step 3: **164 chunks**
+with `heading` at the default size, 148 with `fixed` (§4.1). The corpus is
 smaller than planned, and the brute-force search gets correspondingly
 cheaper. The traps, not the size, are what make retrieval differ between
 configurations; step 7 measures whether they do.

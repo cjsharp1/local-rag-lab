@@ -14,6 +14,7 @@
     "audit-comments": "tsx scripts/audit-comments.ts",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "check-env": "tsx scripts/check-env.ts",
+    "chunk-report": "tsx scripts/chunk-report.ts",
     "index": "tsx scripts/index.ts",
     "tool-server:http": "tsx tool-server/http.ts",
     "try-tools": "tsx scripts/try-tools.ts",
