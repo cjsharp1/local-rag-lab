@@ -1,0 +1,19 @@
+{
+  "id": "exact-term-1-kb-4",
+  "category": "exact-term",
+  "question": "What does regulation KB-4 say?",
+  "hops": [
+    [
+      {
+        "doc": "permit-rules",
+        "text": "KB-4 — No cans or glass bottles"
+      }
+    ]
+  ],
+  "required": [
+    "cans",
+    "glass"
+  ],
+  "forbidden": [],
+  "notes": "A regulation code. Keyword search should find it exactly."
+}

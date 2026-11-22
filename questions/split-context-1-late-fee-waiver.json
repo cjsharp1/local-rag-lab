@@ -1,0 +1,26 @@
+{
+  "id": "split-context-1-late-fee-waiver",
+  "category": "split-context",
+  "question": "When is the late return fee waived?",
+  "hops": [
+    [
+      {
+        "doc": "rental-agreement",
+        "text": "If the Kettle Basin Wilderness Office closes the area, or issues a wind advisory that keeps your group off the water on its exit day, the charge is waived"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "wind advisory"
+    ],
+    [
+      "closes the area",
+      "closes",
+      "closure",
+      "closed"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "Trap 2: the waiver paragraph says \"this fee\" and \"the charge\", never \"late fee\". heading+context should find it."
+}

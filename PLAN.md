@@ -5,9 +5,9 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–5 done.** The corpus is
-approved; the chunker, the three indexes and the MCP search tools are
-built and tested. Sections below will be
+Status: **all decisions made (§13); steps 0–6 done.** The corpus is
+approved; the chunker, the three indexes, the MCP search tools and the
+30-question set are built and checked. Sections below will be
 corrected wherever a build step proves them wrong.
 
 Conventions in this document:
@@ -217,11 +217,13 @@ local-rag-lab/
 │   │   ├── assemble.ts        builds the prompt, marks the chunk spans for the UI
 │   │   └── rerank.ts          optional rerank stage (§4.4)
 │   ├── agent/loop.ts          the tool loop, adapted from the data lab
+│   ├── questions.ts           loads questions/*.json and checks them against the corpus
 │   └── system-prompt.ts
 ├── shared/
 │   ├── types.ts
 │   ├── chunk.ts               chunker, shared by the index script and the tests
 │   ├── local-only.ts          the no-remote-host, no-cloud-model rules
+│   ├── scoring.ts             span and fact matching, the frozen phrase lists, answer outcomes
 │   └── search-settings.ts     search defaults (mode, top-k, floor) and RRF's k
 ├── public/
 │   ├── app.ts, chat.ts, log.ts, state.ts, dom.ts
@@ -460,11 +462,31 @@ planted trap, so readers can find them.
 | stale | 2 | 2025 and 2026 documents disagree; the right answer is the 2026 figure (an answer that gives both and flags the conflict is scored separately, §8) |
 | unanswerable | 3 | not in the corpus; the right answer is "I don't know," and no-retrieval mode will invent one |
 
-Each file holds: the question, its category, one or more gold spans
-(`{ doc, text }`), required answer facts (strings that must appear,
-normalized), and forbidden facts (for stale questions, the 2025 figure).
-Multi-hop questions have one gold span per hop, and all of them are
-required for a hit (§8).
+Each file holds: the question, its category, **hops** of gold spans,
+required answer facts, forbidden facts (for stale questions and the two
+multi-hop questions that touch the rate sheets, the 2025 figure) and a
+note on which trap it tests. Changed at step 6:
+
+- **Hops with alternatives.** `hops` is a list of hops; each hop is a
+  list of alternative spans (`{ doc, text }`), any one of which counts.
+  A question is a hit when every hop is found. Many facts appear in two
+  places (a table row and a paragraph, a policy and the FAQ), and a chunk
+  holding either is a legitimate hit.
+- **Facts with wordings.** Each required fact is a string or a list of
+  acceptable wordings ("6 p.m.", "6 pm", "6:00 pm"…).
+- **One multi-hop question replaced.** The draft's "quota at the Granite
+  River Run's entry point" turned out answerable from one chunk:
+  entry-points.md's EP-22 paragraph names the route *and* gives the
+  quota. It became "How much does it cost per day to rent your lightest
+  canoe?": the catalog says which canoe is lightest but has no prices,
+  and the rate sheet has prices but no weights.
+
+`npm run eval -- --check` validates every file and checks it against the
+corpus: every gold span is in its document (ignoring case and
+whitespace, never digits), every required fact is in the question's own
+gold text, every forbidden fact is in the corpus but not in the gold
+text, and the category counts match the table above. It passes with 30
+questions and 45 gold spans, and `npm test` runs the same check.
 
 ---
 
@@ -626,11 +648,15 @@ one outcome:
 | `conflict-flagged` | stale questions only: both the 2025 and 2026 figures present, and the answer says the documents disagree. Reported on its own line: honest, but not the answer a customer needs |
 | `invented` | anything else: a required fact missing, or a forbidden fact present, without declining |
 
-`declined` and `conflict-flagged` are detected by phrase matching ("don't
-contain," "not in the documents," "conflict," "differ," and a short list
-written in step 6 before any answer run). **This is a heuristic**, labeled
-as one in `scorecard.md`, which lists every answer the phrases classified
-so a reader can check them. `citation-valid` is scored on top of the
+`declined` and `conflict-flagged` are detected by phrase matching
+(`DECLINE_PHRASES` and `CONFLICT_PHRASES` in `shared/scoring.ts`, written
+at step 6 before any answer run and frozen since). Naming both 2025 and
+2026 also counts as flagging the conflict. Outcomes are checked in a
+fixed order: correct, then conflict-flagged (stale only), then declined
+(only with no forbidden fact), then invented. Correct comes first, so
+"the documents don't say why, but the fee is $35" scores as correct.
+**This is a heuristic**, labeled as one in `scorecard.md`, which lists
+every answer the phrases classified so a reader can check them. `citation-valid` is scored on top of the
 outcome. Plus requests, prompt tokens (estimated and actual) and time per
 question.
 

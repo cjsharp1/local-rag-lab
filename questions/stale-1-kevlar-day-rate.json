@@ -1,0 +1,20 @@
+{
+  "id": "stale-1-kevlar-day-rate",
+  "category": "stale",
+  "question": "How much does it cost to rent a Northline 17 Kevlar canoe for one day?",
+  "hops": [
+    [
+      {
+        "doc": "rates-2026",
+        "text": "| Northline 17 Kevlar canoe | $64 per day | $384 |"
+      }
+    ]
+  ],
+  "required": [
+    "$64"
+  ],
+  "forbidden": [
+    "$58"
+  ],
+  "notes": "Trap 1: the 2025 sheet, never marked as replaced, says $58 in an identical row."
+}

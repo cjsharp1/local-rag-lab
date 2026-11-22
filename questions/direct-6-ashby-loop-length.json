@@ -1,0 +1,28 @@
+{
+  "id": "direct-6-ashby-loop-length",
+  "category": "direct",
+  "question": "How long is the Ashby Lake Loop trip?",
+  "hops": [
+    [
+      {
+        "doc": "route-ashby-lake-loop",
+        "text": "2 days / 1 night"
+      },
+      {
+        "doc": "first-trip-faq",
+        "text": "9 miles over 2 days and 1 night"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "2 days",
+      "two days",
+      "1 night",
+      "one night",
+      "overnight"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "Stated in the route guide and repeated in the first-trip FAQ."
+}

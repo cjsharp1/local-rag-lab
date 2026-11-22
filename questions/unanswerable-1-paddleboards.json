@@ -1,0 +1,9 @@
+{
+  "id": "unanswerable-1-paddleboards",
+  "category": "unanswerable",
+  "question": "Do you rent stand-up paddleboards?",
+  "hops": [],
+  "required": [],
+  "forbidden": [],
+  "notes": "Not in the corpus. At step 5 its best vector match still scored 0.748. The right answer is that the documents don't say."
+}

@@ -1,0 +1,30 @@
+{
+  "id": "multi-hop-3-lightest-canoe-price",
+  "category": "multi-hop",
+  "question": "How much does it cost per day to rent your lightest canoe?",
+  "hops": [
+    [
+      {
+        "doc": "boats-and-gear-catalog",
+        "text": "It is the lightest boat we rent"
+      },
+      {
+        "doc": "boats-and-gear-catalog",
+        "text": "| Kestrel 15 | 15 ft solo Kevlar canoe | 32 lb |"
+      }
+    ],
+    [
+      {
+        "doc": "rates-2026",
+        "text": "| Kestrel 15 solo canoe | $48 per day | $288 |"
+      }
+    ]
+  ],
+  "required": [
+    "$48"
+  ],
+  "forbidden": [
+    "$45"
+  ],
+  "notes": "The catalog says which canoe is lightest but gives no prices; the rate sheet has prices but no weights. The 2025 sheet says $45."
+}

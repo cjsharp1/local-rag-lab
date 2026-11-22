@@ -1,0 +1,22 @@
+{
+  "id": "exact-term-2-ep-27-quota",
+  "category": "exact-term",
+  "question": "What's the daily overnight quota at EP-27?",
+  "hops": [
+    [
+      {
+        "doc": "entry-points",
+        "text": "| EP-27 | Kettle Lake | drive-in | 12 |"
+      },
+      {
+        "doc": "entry-points",
+        "text": "Its quota is 12"
+      }
+    ]
+  ],
+  "required": [
+    "12"
+  ],
+  "forbidden": [],
+  "notes": "An entry point code, answered by a table row or the entry point's own paragraph."
+}

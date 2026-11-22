@@ -1,0 +1,20 @@
+{
+  "id": "stale-2-complete-outfitting",
+  "category": "stale",
+  "question": "What does the complete outfitting package cost per person per day?",
+  "hops": [
+    [
+      {
+        "doc": "rates-2026",
+        "text": "| Complete outfitting (boat, all gear, food) | $119 per person per day |"
+      }
+    ]
+  ],
+  "required": [
+    "$119"
+  ],
+  "forbidden": [
+    "$109"
+  ],
+  "notes": "Trap 1: the 2025 sheet says $109."
+}

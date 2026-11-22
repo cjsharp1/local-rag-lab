@@ -1,0 +1,32 @@
+{
+  "id": "multi-hop-1-longest-portage-from-ep-14",
+  "category": "multi-hop",
+  "question": "What's the longest portage on the route that starts at EP-14?",
+  "hops": [
+    [
+      {
+        "doc": "entry-points",
+        "text": "| EP-14 | Heron Lake |"
+      },
+      {
+        "doc": "entry-points",
+        "text": "Heron Lake is the start of the Heron Chain Loop"
+      }
+    ],
+    [
+      {
+        "doc": "route-heron-chain-loop",
+        "text": "The longest portage on the Heron Chain Loop is the Cutfoot carry, Split Rock Lake → Cutfoot Lake, at 290 rods"
+      },
+      {
+        "doc": "route-heron-chain-loop",
+        "text": "| 3 | Split Rock Lake → Cutfoot Lake (\"the Cutfoot carry\") | 290 | Difficult |"
+      }
+    ]
+  ],
+  "required": [
+    "290"
+  ],
+  "forbidden": [],
+  "notes": "Trap 5: EP-14 is mapped to Heron Lake only in entry-points.md; the portage is only in the route guide."
+}

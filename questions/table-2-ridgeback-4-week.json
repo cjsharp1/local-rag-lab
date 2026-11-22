@@ -1,0 +1,22 @@
+{
+  "id": "table-2-ridgeback-4-week",
+  "category": "table",
+  "question": "How much does it cost to rent a Ridgeback 4 tent for a week?",
+  "hops": [
+    [
+      {
+        "doc": "rates-2026",
+        "text": "| Ridgeback 4 tent | $19 per day | $114 |"
+      },
+      {
+        "doc": "rates-2025",
+        "text": "| Ridgeback 4 tent | $19 per day | $114 |"
+      }
+    ]
+  ],
+  "required": [
+    "$114"
+  ],
+  "forbidden": [],
+  "notes": "Trap 3: one cell of the 29-row rate table, in the week column. Same in both years, so the stale sheet can't hurt."
+}

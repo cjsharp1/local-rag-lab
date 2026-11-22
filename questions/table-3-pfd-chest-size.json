@@ -1,0 +1,25 @@
+{
+  "id": "table-3-pfd-chest-size",
+  "category": "table",
+  "question": "Which adult PFD size fits a 44-inch chest?",
+  "hops": [
+    [
+      {
+        "doc": "pfd-sizing",
+        "text": "| Adult L/XL | 40–52 in chest | chest circumference |"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "l/xl",
+      "l / xl",
+      "large/extra large",
+      "large/extra-large",
+      "large / extra large",
+      "large/xl"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "A table row the model has to read as a range: 44 falls in 40–52."
+}

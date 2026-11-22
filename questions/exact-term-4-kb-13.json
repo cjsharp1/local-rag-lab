@@ -1,0 +1,18 @@
+{
+  "id": "exact-term-4-kb-13",
+  "category": "exact-term",
+  "question": "What does KB-13 prohibit?",
+  "hops": [
+    [
+      {
+        "doc": "permit-rules",
+        "text": "KB-13 — Drones prohibited"
+      }
+    ]
+  ],
+  "required": [
+    "drone"
+  ],
+  "forbidden": [],
+  "notes": "A regulation code; KB-1 and KB-13 share a prefix, which tests the phrase match."
+}

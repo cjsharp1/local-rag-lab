@@ -1,0 +1,28 @@
+{
+  "id": "exact-term-5-ep-31-access",
+  "category": "exact-term",
+  "question": "How do you get to EP-31?",
+  "hops": [
+    [
+      {
+        "doc": "entry-points",
+        "text": "| EP-31 | Stillwater Lake | van shuttle | 5 |"
+      },
+      {
+        "doc": "entry-points",
+        "text": "Stillwater Lake is reached by our van shuttle"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "van shuttle",
+      "by van",
+      "the van",
+      "our van",
+      "a van"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "An entry point code; the answer is how it's reached."
+}

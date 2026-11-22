@@ -1,0 +1,35 @@
+{
+  "id": "direct-3-store-hours",
+  "category": "direct",
+  "question": "What are the store's hours during the season?",
+  "hops": [
+    [
+      {
+        "doc": "contact-and-hours",
+        "text": "the store is open 6 a.m. to 8 p.m., every day"
+      },
+      {
+        "doc": "rental-agreement",
+        "text": "Our store is open 6 a.m. to 8 p.m. daily during the season"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "6 a.m",
+      "6 am",
+      "6:00 a.m",
+      "6:00 am",
+      "6am"
+    ],
+    [
+      "8 p.m",
+      "8 pm",
+      "8:00 p.m",
+      "8:00 pm",
+      "8pm"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "Two facts in one sentence; stated in two documents."
+}

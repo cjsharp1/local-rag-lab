@@ -1,0 +1,18 @@
+{
+  "id": "table-1-carbon-paddle-loss",
+  "category": "table",
+  "question": "What's the charge for losing a carbon paddle?",
+  "hops": [
+    [
+      {
+        "doc": "damage-and-loss",
+        "text": "| Carbon paddle, lost or broken | $160 |"
+      }
+    ]
+  ],
+  "required": [
+    "$160"
+  ],
+  "forbidden": [],
+  "notes": "Trap 3: one row of the 23-row damage table."
+}

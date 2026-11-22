@@ -1,0 +1,9 @@
+{
+  "id": "unanswerable-2-fishing-license",
+  "category": "unanswerable",
+  "question": "Do I need a fishing license for the Kettle Basin, and where can I buy one?",
+  "hops": [],
+  "required": [],
+  "forbidden": [],
+  "notes": "Fishing appears nowhere in the corpus, on purpose."
+}

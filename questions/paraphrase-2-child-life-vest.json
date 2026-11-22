@@ -1,0 +1,18 @@
+{
+  "id": "paraphrase-2-child-life-vest",
+  "category": "paraphrase",
+  "question": "Our kid is about 40 pounds. Which life vest should they wear?",
+  "hops": [
+    [
+      {
+        "doc": "pfd-sizing",
+        "text": "| Child | 30–50 lb | body weight |"
+      }
+    ]
+  ],
+  "required": [
+    "child"
+  ],
+  "forbidden": [],
+  "notes": "\"Life vest\" and \"pounds\" against \"PFD\" and \"lb\". The answer is a table row."
+}

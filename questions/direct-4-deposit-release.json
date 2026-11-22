@@ -1,0 +1,21 @@
+{
+  "id": "direct-4-deposit-release",
+  "category": "direct",
+  "question": "How soon is my deposit released after I return the gear?",
+  "hops": [
+    [
+      {
+        "doc": "deposits-and-payment",
+        "text": "Your deposit is released within 5 business days of your return"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "5 business days",
+      "five business days"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "Stated plainly. general-faq.md has a decoy answer about deposits that gives no number."
+}

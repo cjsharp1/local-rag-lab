@@ -1,0 +1,30 @@
+{
+  "id": "direct-1-return-deadline",
+  "category": "direct",
+  "question": "By what time does rented gear have to be back on the last day of a rental?",
+  "hops": [
+    [
+      {
+        "doc": "rental-agreement",
+        "text": "all gear is due back by 6 p.m. on the last day of your rental"
+      },
+      {
+        "doc": "route-ashby-lake-loop",
+        "text": "Rental gear is due back by 6 p.m. on your last day"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "6 p.m",
+      "6 pm",
+      "6:00 p.m",
+      "6:00 pm",
+      "6pm",
+      "6:00pm",
+      "18:00"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "The answer is stated plainly, in two documents."
+}

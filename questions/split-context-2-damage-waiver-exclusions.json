@@ -1,0 +1,31 @@
+{
+  "id": "split-context-2-damage-waiver-exclusions",
+  "category": "split-context",
+  "question": "What doesn't the damage waiver cover?",
+  "hops": [
+    [
+      {
+        "doc": "damage-and-loss",
+        "text": "Loss of a boat through negligence is charged in full; that includes a boat left unsecured overnight and a boat left behind at a landing. Damage from towing a boat behind a motorboat is charged in full, since rented gear may not be towed behind a motorboat in the first place. And it applies only to boats: paddles, PFDs, tents and packs"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "negligence",
+      "negligent"
+    ],
+    [
+      "paddles",
+      "pfds",
+      "tents",
+      "packs",
+      "other gear",
+      "only boats",
+      "only to boats",
+      "only covers boats"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "Trap 2: the exclusions paragraph says \"it\", never \"waiver\"."
+}

@@ -1,0 +1,26 @@
+{
+  "id": "exact-term-3-kestrel-15-weight",
+  "category": "exact-term",
+  "question": "How much does the Kestrel 15 weigh?",
+  "hops": [
+    [
+      {
+        "doc": "boats-and-gear-catalog",
+        "text": "| Kestrel 15 | 15 ft solo Kevlar canoe | 32 lb |"
+      },
+      {
+        "doc": "boats-and-gear-catalog",
+        "text": "The Kestrel 15 is a 15 ft solo Kevlar canoe that weighs 32 lb"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "32 lb",
+      "32 pound",
+      "32-pound"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "A product name with a number in it."
+}

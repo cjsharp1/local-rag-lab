@@ -1,0 +1,28 @@
+{
+  "id": "split-context-3-day-use-permit-cost",
+  "category": "split-context",
+  "question": "Do day-use permits cost anything?",
+  "hops": [
+    [
+      {
+        "doc": "permit-rules",
+        "text": "They cost nothing, you need only one per group"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "free",
+      "cost nothing",
+      "no cost",
+      "no charge",
+      "don't cost",
+      "do not cost",
+      "doesn't cost",
+      "does not cost",
+      "no fee"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "Trap 2: the answer says \"they\". At step 5 it ranked #48 under heading and #17 under heading+context."
+}

@@ -1,0 +1,40 @@
+{
+  "id": "multi-hop-2-heron-chain-shuttle-cost",
+  "category": "multi-hop",
+  "question": "How much is the shuttle for the Heron Chain Loop?",
+  "hops": [
+    [
+      {
+        "doc": "route-heron-chain-loop",
+        "text": "Your permit must be for the Heron Lake entry point"
+      },
+      {
+        "doc": "entry-points",
+        "text": "Heron Lake is the start of the Heron Chain Loop"
+      }
+    ],
+    [
+      {
+        "doc": "entry-points",
+        "text": "| EP-14 | Heron Lake |"
+      },
+      {
+        "doc": "entry-points",
+        "text": "EP-14 — Heron Lake"
+      }
+    ],
+    [
+      {
+        "doc": "rates-2026",
+        "text": "| Shuttle: EP-14, tow boat | $95 per group, round trip |"
+      }
+    ]
+  ],
+  "required": [
+    "$95"
+  ],
+  "forbidden": [
+    "$80"
+  ],
+  "notes": "Trap 5 and trap 1: route → entry point name → code → rate sheet, which lists shuttles by code only. The 2025 sheet says $80."
+}

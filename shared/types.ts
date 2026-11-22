@@ -235,6 +235,67 @@ export interface StageTimings {
 }
 
 // ---------------------------------------------------------------------------
+// The question set and how answers are scored (PLAN §5.3, §8)
+// ---------------------------------------------------------------------------
+
+/** What a question tests. Counts per category are fixed by PLAN §5.3. */
+export type QuestionCategory =
+  | "direct"
+  | "paraphrase"
+  | "exact-term"
+  | "split-context"
+  | "table"
+  | "multi-hop"
+  | "stale"
+  | "unanswerable";
+
+/**
+ * A piece of corpus text that holds (part of) the answer. Matched against
+ * a chunk's own text, from the named document, ignoring case and
+ * whitespace but not digits (shared/scoring.ts).
+ */
+export interface GoldSpan {
+  /** Document id: "rental-agreement". */
+  doc: string;
+  text: string;
+}
+
+/** One question from questions/, as its JSON file holds it. */
+export interface Question {
+  /** Same as the file name without ".json": "direct-1-return-deadline". */
+  id: string;
+  category: QuestionCategory;
+  question: string;
+  /**
+   * What retrieval must find. Each hop is a list of alternative spans, any
+   * one of which counts; a question is a hit when every hop is found.
+   * Single-hop questions have one hop; multi-hop questions have two or
+   * more; unanswerable questions have none.
+   */
+  hops: GoldSpan[][];
+  /**
+   * Facts the answer must contain. Each entry is one fact; an array is a
+   * list of acceptable wordings for it ("6 p.m.", "6 pm"…).
+   */
+  required: Array<string | string[]>;
+  /** Facts that make an answer wrong, such as the stale 2025 figure. */
+  forbidden: string[];
+  /** Why the question is in the set and which trap it tests. */
+  notes: string;
+}
+
+/**
+ * Exactly one per answer (PLAN §8):
+ *
+ *   correct           every required fact, no forbidden fact
+ *   declined          says the documents don't contain the answer
+ *   conflict-flagged  stale questions: gives both figures and says the
+ *                     documents disagree
+ *   invented          anything else
+ */
+export type AnswerOutcome = "correct" | "declined" | "conflict-flagged" | "invented";
+
+// ---------------------------------------------------------------------------
 // The activity log
 // ---------------------------------------------------------------------------
 

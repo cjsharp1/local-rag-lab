@@ -1,0 +1,26 @@
+{
+  "id": "paraphrase-5-call-off-three-weeks-ahead",
+  "category": "paraphrase",
+  "question": "If we call off our trip three weeks before we were supposed to leave, how much do we get back?",
+  "hops": [
+    [
+      {
+        "doc": "cancellation-and-weather",
+        "text": "| 14 to 29 days before pickup | 50% refund |"
+      },
+      {
+        "doc": "cancellation-and-weather",
+        "text": "Cancel 14 to 29 days before pickup and we refund 50% of what you've paid"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "50%",
+      "50 percent",
+      "half"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "\"Call off\" and \"three weeks\" against \"cancel\" and \"14 to 29 days\": the model also has to place 21 days in a range."
+}

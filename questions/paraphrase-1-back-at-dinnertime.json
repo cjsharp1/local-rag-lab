@@ -1,0 +1,18 @@
+{
+  "id": "paraphrase-1-back-at-dinnertime",
+  "category": "paraphrase",
+  "question": "We might not make it back until dinnertime on our final evening. Will that cost us?",
+  "hops": [
+    [
+      {
+        "doc": "rental-agreement",
+        "text": "charged a late fee of $35 per boat for each day or part of a day it is late"
+      }
+    ]
+  ],
+  "required": [
+    "$35"
+  ],
+  "forbidden": [],
+  "notes": "Shares no key words with the answer (late, fee, returned, 6 p.m.); vector search should find it and keyword search shouldn't."
+}

@@ -1,0 +1,28 @@
+{
+  "id": "paraphrase-4-reach-home",
+  "category": "paraphrase",
+  "question": "Will we be able to reach anyone back home once we're deep in the wilderness?",
+  "hops": [
+    [
+      {
+        "doc": "general-faq",
+        "text": "There is no cell service past Ashby Lake. Once you leave Ashby Lake, assume you cannot call, text or load a map. Download maps before you leave, and tell someone at home your route and expected exit date. If you want a way to call for help, rent a satellite messenger with your gear"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "no cell",
+      "no cellular",
+      "no phone",
+      "no coverage",
+      "no signal",
+      "no service"
+    ],
+    [
+      "satellite"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "No shared key words. A full answer gives both the bad news and the satellite messenger."
+}

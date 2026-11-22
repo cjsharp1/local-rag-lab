@@ -1,0 +1,25 @@
+{
+  "id": "direct-5-group-size",
+  "category": "direct",
+  "question": "What's the largest group allowed in the Kettle Basin Canoe Area?",
+  "hops": [
+    [
+      {
+        "doc": "permit-rules",
+        "text": "A group may have at most 9 people and at most 4 watercraft"
+      },
+      {
+        "doc": "campsites-and-group-size",
+        "text": "A group may have at most 9 people and at most 4 watercraft"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "9 people",
+      "nine people"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "Stated in two documents. Both also mention the old limit of 10, as history."
+}

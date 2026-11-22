@@ -1,0 +1,9 @@
+{
+  "id": "unanswerable-3-cabin-night-before",
+  "category": "unanswerable",
+  "question": "Can we book a cabin near the outfitter for the night before our trip?",
+  "hops": [],
+  "required": [],
+  "forbidden": [],
+  "notes": "Lodging appears nowhere in the corpus, on purpose."
+}

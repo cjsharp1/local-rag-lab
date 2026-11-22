@@ -1,0 +1,20 @@
+{
+  "id": "paraphrase-3-bring-the-pup",
+  "category": "paraphrase",
+  "question": "Can our pup come along on the trip?",
+  "hops": [
+    [
+      {
+        "doc": "general-faq",
+        "text": "Dogs are welcome on trips. Keep your dog leashed at the landing and on our dock"
+      }
+    ]
+  ],
+  "required": [
+    [
+      "leash"
+    ]
+  ],
+  "forbidden": [],
+  "notes": "\"Pup\" against \"dog\". The scored fact is the leash rule, the condition attached to yes."
+}

@@ -1,0 +1,18 @@
+{
+  "id": "direct-2-minimum-age",
+  "category": "direct",
+  "question": "How old do you have to be to sign a rental agreement?",
+  "hops": [
+    [
+      {
+        "doc": "rental-agreement",
+        "text": "The person signing the agreement must be at least 18 years old"
+      }
+    ]
+  ],
+  "required": [
+    "18"
+  ],
+  "forbidden": [],
+  "notes": "A one-line fact in the rental agreement's list of requirements."
+}
