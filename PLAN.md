@@ -5,8 +5,9 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–4 done.** The corpus is
-approved; the chunker and the three indexes are built and tested. Sections below will be
+Status: **all decisions made (§13); steps 0–5 done.** The corpus is
+approved; the chunker, the three indexes and the MCP search tools are
+built and tested. Sections below will be
 corrected wherever a build step proves them wrong.
 
 Conventions in this document:
@@ -57,7 +58,15 @@ What a reader should come away able to say, with the log in front of them:
 5. **Embeddings capture meaning, not identifiers.** Vector search finds
    "how do I bring the canoe back late" from "late return fee," and misses
    an exact permit code that keyword search finds instantly. Hybrid search
-   exists for that reason.
+   exists for that reason. *Measured at step 5: on this small corpus,
+   vector search found the codes too, within its top two every time
+   (docs/verified-facts.md). The lesson stands as the reason hybrid search
+   exists; whether this corpus demonstrates it is for the step 7
+   scorecard to show.*
+6. **A similarity score can't tell you the answer isn't there.** *(Added
+   at step 5.)* A question the corpus can't answer still gets a best match
+   around 0.75, higher than some real answers score. No floor separates
+   them; deciding "the documents don't say" is the answer step's job.
 
 ### Seeing behind the scenes
 
@@ -189,7 +198,8 @@ local-rag-lab/
 │   │   ├── keyword.ts         FTS5 BM25
 │   │   ├── fuse.ts            reciprocal rank fusion
 │   │   └── search.ts          one entry point, returns every candidate with every score
-│   ├── tools/                 search_docs, get_document, list_documents
+│   ├── tools/                 search_docs (search-docs.ts), get_document and list_documents (documents.ts)
+│   ├── indexes.ts             loads all three indexes at startup; search_docs picks one by `strategy`
 │   ├── mcp-server.ts
 │   ├── stdio.ts
 │   └── http.ts
@@ -210,7 +220,9 @@ local-rag-lab/
 │   └── system-prompt.ts
 ├── shared/
 │   ├── types.ts
-│   └── chunk.ts               chunker, shared by the index script and the tests
+│   ├── chunk.ts               chunker, shared by the index script and the tests
+│   ├── local-only.ts          the no-remote-host, no-cloud-model rules
+│   └── search-settings.ts     search defaults (mode, top-k, floor) and RRF's k
 ├── public/
 │   ├── app.ts, chat.ts, log.ts, state.ts, dom.ts
 │   ├── compare.ts             the three-column view
@@ -324,10 +336,14 @@ along a table row.
 - **Hybrid:** RRF with k = 60, the common default. Each candidate carries
   its vector rank, keyword rank and fused score.
 - Search settings per question: `mode` (vector / keyword / hybrid),
-  `topK` (default 4), `floor` (minimum vector similarity, **estimate**,
-  set at step 5 from the similarity distribution over the real corpus.
-  The draft's 0.3 is too low: in step 0, two unrelated query/passage
-  pairs scored 0.43 and 0.54, so 0.3 would filter almost nothing).
+  `topK` (default 4), `floor` (minimum vector similarity, **0.50**, set
+  at step 5 from the score distribution of nine probe questions over all
+  three indexes; docs/verified-facts.md has the table). It's a noise cut,
+  not a relevance test: score levels vary by question so much that the
+  lowest answer chunk seen (0.587) scored below another question's median
+  chunk (0.613), and a question with no answer in the corpus still had a
+  best match of 0.748. Defaults live in `shared/search-settings.ts`;
+  hybrid is the default mode.
 - **The floor applies only to candidates found by vector search alone.**
   In vector mode, a chunk below the floor is dropped. In keyword mode the
   floor doesn't apply. In hybrid mode, a chunk is dropped only if it is
@@ -336,6 +352,15 @@ along a table row.
   cut before the app ever saw it, and the exact-term lesson would vanish.
   Every candidate's vector score is still reported, so the log shows when
   keyword search rescued a chunk the floor would have dropped.
+- **Below-floor chunks come back as a summary** (changed at step 5): a
+  count, and the best of them with its score. Listing every one would be
+  most of the corpus on every search. The app logs the summary as one
+  `below-floor` row; every other dropped chunk gets a row of its own.
+- **The keyword query is built, not passed through.** Common words and
+  stray letters are dropped (a short fixed list, labeled as a heuristic),
+  and each remaining word is quoted. Without the stopword list, "the"
+  matches nearly every chunk and keyword search returns the corpus. The
+  built query and the dropped words travel with every result.
 
 ### 4.3 The context budget (`server/context/budget.ts`)
 

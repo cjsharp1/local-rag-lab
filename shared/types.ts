@@ -154,8 +154,46 @@ export interface Candidate {
 }
 
 /**
- * Why a candidate didn't reach the model. Every chunk not sent gets one,
- * and gets its own log row (PLAN §4.3).
+ * What one search_docs call returns (PLAN §3.3 step 3): every candidate
+ * that passed the floor, with every score, in the mode's rank order. The
+ * tool server never applies top-k or the budget; the app does, where it's
+ * logged.
+ */
+export interface SearchResult {
+  /** The query as given. */
+  query: string;
+  strategy: ChunkStrategy;
+  mode: SearchMode;
+  floor: number;
+  /**
+   * The FTS5 query keyword search actually ran, built from the query
+   * (PLAN §4.2), or null when no searchable words were left. Absent in
+   * vector mode.
+   */
+  keywordQuery?: string | null;
+  /** Words dropped before keyword search: common words and stray letters. */
+  ignoredWords?: string[];
+  candidates: Candidate[];
+  /**
+   * Chunks the floor removed, summarized: listing every one would be most
+   * of the corpus. The best of them shows how close the floor came to
+   * letting another chunk through.
+   */
+  belowFloor: { count: number; best?: { chunkId: string; vectorScore: number } };
+  /** How many chunks the index holds. */
+  totalChunks: number;
+  /** Where the query lands on the embedding map. */
+  queryMap: { x: number; y: number };
+  /** Milliseconds. `embedLoad` non-zero means the embeddings model had to load. */
+  timings: { embed: number; embedLoad: number; search: number };
+  /** True when the index was built from a different corpus than the one on disk. */
+  indexStale: boolean;
+}
+
+/**
+ * Why a candidate didn't reach the model. Every chunk not sent gets one.
+ * `below-floor` chunks arrive as SearchResult.belowFloor, a summary that
+ * the app logs as one row; the others get a row each (PLAN §4.3).
  */
 export type DropReason = "below-floor" | "past-top-k" | "over-budget";
 

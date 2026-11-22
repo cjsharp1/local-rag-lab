@@ -98,10 +98,78 @@ nothing yet about qwen's tokenizer (step 8).
 With prefixes, two **unrelated** query/passage pairs scored **0.541** and
 **0.433** (late-fee query vs. hull-rinsing passage; group-size query vs.
 late-fee passage). The plan's floor of 0.3 would let nearly every chunk
-through and filter nothing. That's two pairs, not a distribution, so the
-floor stays marked **estimate** and is **pending** step 5. `try-tools`
-prints the similarity distribution over the real corpus there, and the
-floor is set from it.
+through and filter nothing. That was two pairs, not a distribution; step
+5 measured one.
+
+### The floor, measured (step 5)
+
+Nine probe questions, eight with a known answer chunk and one the corpus
+can't answer, scored against every chunk of all three indexes at the
+default preset (vector mode, no floor). Excerpt, `heading` index:
+
+| Question | Median chunk | Best chunk | Answer chunk (score, rank) |
+|---|---|---|---|
+| What's the fee if we bring the canoe back a day late? | 0.613 | 0.890 | 0.890, #1 |
+| How much does a Kevlar canoe cost per day? | 0.568 | 0.795 | 0.795, #2 |
+| What doesn't the damage waiver cover? | 0.467 | 0.728 | 0.601, #6 |
+| Do day-use permits cost anything? | 0.540 | 0.744 | 0.587, **#48** |
+| Which entry point is EP-14? | 0.472 | 0.634 | 0.617, #2 |
+| What size life jacket does a 40 pound child need? | 0.470 | 0.667 | 0.667, #1 |
+| When are quiet hours? | 0.453 | 0.634 | 0.634, #1 |
+| What's the longest portage on the Heron Chain Loop? | 0.555 | 0.832 | 0.832, #1 |
+| Do you rent stand-up paddleboards? *(not in the corpus)* | 0.572 | **0.748** | — |
+
+**changed**: three things the plan didn't expect.
+
+- **Score levels depend on the question.** The median chunk ranges from
+  0.45 to 0.62 depending on the query, so no fixed number separates
+  relevant from irrelevant: the day-use answer (0.587) scores below the
+  late-fee question's *median* chunk (0.613).
+- **A question with no answer scores like one with an answer.** The
+  paddleboard question's best match, 0.748, beats four of the eight real
+  answer chunks. A similarity floor cannot detect "the documents don't
+  say"; only the answer step can.
+- **The split-context trap shows up in the ranks.** The day-use answer
+  ranks #48 under `heading` and **#17** under `heading+context`, where the
+  heading path is embedded with it. (`fixed`: #23.)
+
+**Floor set to 0.50**, as a noise cut, not a relevance test. It's 0.087
+below the lowest answer chunk seen (0.587) and removes roughly the bottom
+third of the corpus for a typical question. The step 7 scorecard checks
+that no gold chunk falls below it across all 30 questions.
+
+### Exact codes: vector search does better than predicted (step 5)
+
+PLAN §1 lesson 5 predicted that vector search misses exact codes and
+keyword search finds them. `npm run try-tools`, `heading` index, rank of
+the first chunk containing the code (no floor):
+
+| Query | keyword | vector | hybrid |
+|---|---|---|---|
+| `EP-14` | #5 | **#2** | #3 |
+| How much is the EP-14 shuttle? | #1 | #1 | #1 |
+| Which entry point is EP-14? | #1 | #2 | #1 |
+| `KB-7` | #1 | #1 | #1 |
+| What does KB-13 prohibit? | #1 | #2 | #1 |
+| How heavy is the Kestrel 15? | #2 | #1 | #1 |
+| `StormCell 2` | #1 | #1 | #1 |
+
+**changed**: on this corpus, vector search finds the code within its top
+two every time, and for bare `EP-14` it beats keyword search, which ranks
+four chunks that mention EP-14 in passing above the entry point table
+(BM25 favors short chunks). The likely reason: in a 25-document corpus
+these codes are rare tokens, and nomic's subword tokenizer gives each
+one a distinctive signal. The prediction may still hold for a corpus with
+hundreds of similar codes; this one has twelve. Recorded as measured, not
+engineered away; whether keyword search earns its place is for the step
+7 scorecard to show across the five exact-term questions.
+
+### FTS5 query building (step 5)
+
+`keyword.ts` turns raw text into a safe FTS5 query. Checked in the tests
+against inputs that break raw MATCH: `EP-14`, a trailing `?`, FTS5
+operators (`NOT`, `NEAR`, `AND`), `col:value`, `^`, `*`, and accented
+letters. All produce valid queries. **confirmed.**
 
 ---
 
@@ -170,7 +238,7 @@ with thinking off.
 
 | Fact | Step |
 |---|---|
-| Vector-similarity distribution on the real corpus, and the floor set from it | 5 |
-| Whether vector search misses `EP-14` and keyword search finds it | 5 |
+| No gold chunk falls below the 0.50 floor, across all 30 questions | 7 |
+| Whether keyword search earns its place on the exact-term questions | 7 |
 | Chars ÷ 4 against qwen's real `prompt_eval_count` | 8 |
 | Answer-pass and rerank-pass run times | 9 |
