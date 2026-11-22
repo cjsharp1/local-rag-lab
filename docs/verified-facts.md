@@ -74,6 +74,25 @@ One measured pair: the late-fee question against the late-fee passage
 scored 0.873 cosine without prefixes and 0.911 with them. `embed.ts`
 applies the prefixes, and a comment explains them.
 
+### Silent truncation (checked at step 4)
+
+| Request | Result | Status |
+|---|---|---|
+| `/api/embed`, 12,000-word input, default settings | **HTTP 200** with a vector. The input was cut to the context length without a warning | **changed**: a silent default the plan didn't know about |
+| The same with `truncate: false` | HTTP 400, `{"error":"the input length exceeds the context length"}` | confirmed, run |
+
+`embed.ts` sends `truncate: false` on every request, so an over-long
+chunk fails loudly instead of being embedded from its first part only.
+No chunk in the corpus comes near the limit (the largest is about 600
+estimated tokens at the `large` preset).
+
+### Tokens: the estimate against nomic's count (step 4)
+
+The 148 `fixed` chunks at the default preset are about 41,300 tokens by
+chars ÷ 4 (prefixes included); nomic counted **41,713**. That's within
+about 1%, so the heuristic is good enough for sizing chunks. It says
+nothing yet about qwen's tokenizer (step 8).
+
 ### The vector floor looks too low (PLAN §4.2)
 
 With prefixes, two **unrelated** query/passage pairs scored **0.541** and

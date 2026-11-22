@@ -22,14 +22,18 @@
  *      no cloud models; and whether Ollama's own local-only switch is on.
  *      "Not running" and "running but the model is missing" need different
  *      fixes, so they are separate lines.
- *   4. The indexes — one file per chunking strategy. Until build step 4
- *      creates `npm run index`, a missing index is a note, not a failure:
- *      nothing can be done about it yet. Step 4 turns it into a failure
- *      and adds the corpus-hash check.
+ *   4. The indexes — one file per chunking strategy, each built by
+ *      `npm run index`. Each must exist, must have been built from the
+ *      corpus as it is now (its stored corpus hash matches), and must
+ *      have been embedded with EMBED_MODEL, because vectors from two
+ *      models can't be compared. A stale index still "works"; it just
+ *      searches chunks that no longer match the documents, which is
+ *      exactly the failure worth a loud line.
  *
- * This script talks to Ollama with plain fetch calls of its own. The
- * lab's shared model client arrives at build step 8; once it does, this
- * file uses it, so the cloud-model rule lives in one place.
+ * The local-only rules (no remote Ollama, no cloud models) come from
+ * shared/local-only.ts, the same file the embedder uses. This script
+ * still lists models with its own fetch calls; the lab's chat client
+ * arrives at build step 8.
  *
  * ---------------------------------------------------------------------------
  * Why settings are checked as well as read
@@ -43,12 +47,15 @@
  */
 
 import "dotenv/config"; // reads .env, if there is one, onto process.env
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { isRemoteModel, LOCAL_HOSTS } from "../shared/local-only.js";
 import type { ChunkStrategy } from "../shared/types.js";
+import { corpusHash, loadCorpus } from "../tool-server/corpus.js";
+import { indexPath, readIndexSettings } from "../tool-server/db.js";
 
 /** The project root, derived from this file rather than from cwd. */
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
@@ -69,9 +76,6 @@ const COMPARED_MODEL = "llama3.2:3b";
 /** The lowest Node major with node:sqlite usable unflagged. */
 const MIN_NODE_MAJOR = 24;
 
-/** Hostnames that mean "this machine". */
-const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-
 /** Ollama's own port: the lab's servers must not try to take it. */
 const OLLAMA_PORT = 11434;
 
@@ -84,11 +88,6 @@ const MIN_NUM_CTX = 4096;
 
 /** The index files, one per strategy (PLAN §2). */
 const STRATEGIES: readonly ChunkStrategy[] = ["fixed", "heading", "heading+context"];
-
-/** "heading+context" → "data/index-heading-context.db". */
-function indexFile(strategy: ChunkStrategy): string {
-  return join("data", `index-${strategy.replace("+", "-")}.db`);
-}
 
 /** A running tally, so the summary line can say whether anything failed. */
 let failures = 0;
@@ -128,16 +127,6 @@ function setting(name: keyof typeof DEFAULTS): string {
 function parsePort(value: string): number | null {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 && parsed <= 65535 ? parsed : null;
-}
-
-/**
- * Whether a model runs on ollama.com rather than this machine: a name
- * ending in ":cloud" or "-cloud", or a /api/tags entry with a remote_*
- * field set. The same rule the prompt injection lab's client enforces.
- */
-function isRemoteModel(name: string, entry?: Record<string, unknown>): boolean {
-  if (/[:-]cloud$/i.test(name)) return true;
-  return entry !== undefined && Object.keys(entry).some((k) => k.startsWith("remote_") && entry[k]);
 }
 
 /** /api/tags names a model "qwen3.5:4b"; a bare "nomic-embed-text" means ":latest". */
@@ -381,15 +370,28 @@ async function checkOllama(origin: string | null): Promise<void> {
 // --- 4. The indexes --------------------------------------------------------------
 
 function checkIndexes(): void {
-  const missing = STRATEGIES.filter((s) => !existsSync(join(ROOT, indexFile(s))));
-  if (missing.length === 0) {
-    pass(`All ${STRATEGIES.length} indexes exist (${STRATEGIES.map(indexFile).join(", ")})`);
-    return;
+  const hash = corpusHash(loadCorpus());
+  const embedModel = setting("EMBED_MODEL");
+
+  for (const strategy of STRATEGIES) {
+    const path = indexPath(strategy);
+    const shown = relative(ROOT, path).split(sep).join("/");
+    const settings = readIndexSettings(path);
+
+    if (!settings) {
+      fail(`${shown} is missing.`, "Run:  npm run index   (builds all three indexes in a few seconds)");
+    } else if (settings.corpusHash !== hash) {
+      fail(`${shown} is stale: a corpus document changed since it was built.`,
+        "It would search chunks that no longer match the documents.",
+        `Run:  npm run index -- --strategy ${strategy}`);
+    } else if (tagged(settings.embedModel) !== tagged(embedModel)) {
+      fail(`${shown} was embedded with ${settings.embedModel}, but EMBED_MODEL is ${embedModel}.`,
+        "Query and chunk vectors from different models can't be compared.",
+        `Run:  npm run index -- --strategy ${strategy}`);
+    } else {
+      pass(`${shown}: ${settings.chunkCount} chunks, preset "${settings.preset}", built from the current corpus`);
+    }
   }
-  // A note until build step 4: `npm run index` doesn't exist yet, so a
-  // FAIL here would name a fix nobody can apply.
-  note(`No index for: ${missing.join(", ")}.`,
-    "The indexes are built by `npm run index`, which arrives at build step 4.");
 }
 
 // --- Run -----------------------------------------------------------------------
@@ -403,9 +405,7 @@ checkNumCtx();
 await checkOllama(origin);
 checkIndexes();
 
-// "No checks failed", not "everything is ready": while the notes above
-// include a missing index, the lab is not ready to answer questions yet.
 console.log(failures === 0
-  ? "\nNo checks failed. Read any lines marked note above.\n"
+  ? "\nEverything is ready.\n"
   : `\n${failures} check${failures === 1 ? "" : "s"} failed — fix the lines marked FAIL above.\n`);
 process.exitCode = failures === 0 ? 0 : 1;

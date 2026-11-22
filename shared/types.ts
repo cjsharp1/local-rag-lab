@@ -80,6 +80,14 @@ export interface IndexSettings {
   corpusHash: string;
   /** When it was built, as milliseconds since the epoch. */
   builtAt: number;
+  /** How many chunks it holds. */
+  chunkCount: number;
+  /**
+   * Share of the total variance each map axis keeps, 0–1. Printed under
+   * the map, because two axes keep only a small part of 768 dimensions
+   * and the map's distances are distorted accordingly (PLAN §4.5).
+   */
+  mapVariance: [number, number];
 }
 
 // ---------------------------------------------------------------------------

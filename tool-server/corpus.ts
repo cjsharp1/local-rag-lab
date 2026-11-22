@@ -20,8 +20,12 @@
  *     overwrite.
  *   - Files are read in sorted path order, so every machine builds the
  *     same chunks in the same order.
+ *
+ * It also fingerprints the corpus (corpusHash), so an index can tell
+ * whether the documents it was built from are still the documents on disk.
  */
 
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,4 +69,18 @@ export function loadCorpus(dir: string = CORPUS_DIR): CorpusDoc[] {
     const title = /^#[ \t]+(.+?)[ \t]*$/m.exec(text)?.[1] ?? id;
     return { id, path, title, text };
   });
+}
+
+/**
+ * A fingerprint of the corpus: SHA-256 over every document's path and
+ * normalized text, in sorted order. Each index stores the hash it was
+ * built from; a different hash now means a document changed, appeared or
+ * disappeared since, and the index no longer matches what it claims to
+ * search. Normalized text, so a CRLF checkout and an LF checkout of the
+ * same corpus give the same hash.
+ */
+export function corpusHash(docs: readonly CorpusDoc[]): string {
+  const hash = createHash("sha256");
+  for (const doc of [...docs].sort((a, b) => (a.path < b.path ? -1 : 1))) hash.update(`${doc.path}\0${doc.text}\0`);
+  return hash.digest("hex");
 }

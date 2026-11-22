@@ -5,8 +5,8 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–3 done.** The corpus is
-approved and the chunker is built and tested. Sections below will be
+Status: **all decisions made (§13); steps 0–4 done.** The corpus is
+approved; the chunker and the three indexes are built and tested. Sections below will be
 corrected wherever a build step proves them wrong.
 
 Conventions in this document:
@@ -182,7 +182,8 @@ local-rag-lab/
 ├── tool-server/
 │   ├── corpus.ts              reads corpus/*.md (skipping README.md) into normalized documents
 │   ├── db.ts
-│   ├── embed.ts               one function: text → vector, via Ollama
+│   ├── embed.ts               one function: text → vector, via Ollama (task prefixes, no silent truncation)
+│   ├── pca.ts                 fits the 2D map at index time, projects the query at question time
 │   ├── search/
 │   │   ├── vector.ts          cosine similarity over every chunk
 │   │   ├── keyword.ts         FTS5 BM25
@@ -221,7 +222,6 @@ local-rag-lab/
 │   ├── check-env.ts
 │   ├── chunk-report.ts        chunk counts and the longest and shortest chunks per strategy
 │   ├── index.ts               chunk + embed + store → data/index-<strategy>.db (all three by default)
-│   ├── project.ts             PCA → 2D coordinates stored in the index
 │   ├── try-tools.ts
 │   ├── try-model.ts
 │   ├── ask.ts                 one question, one mode, every row in the terminal
@@ -369,11 +369,16 @@ question, 0–3, in one structured request. It is slow and labeled as such
 in the UI, and the time it adds appears in the log. That cost is part of
 the lesson. A dedicated cross-encoder is a decision (§13, #4).
 
-### 4.5 The embedding map (`scripts/project.ts`, `public/map.ts`)
+### 4.5 The embedding map (`tool-server/pca.ts`, `public/map.ts`)
 
 PCA to two dimensions, written in TypeScript (power iteration, about 60
 lines), computed at index time and stored with the chunks. The query is
-projected with the same components at question time. The map shows chunks
+projected with the same components at question time, which is why the
+math lives in the tool server rather than in a script (changed at step 4;
+the draft had `scripts/project.ts`). Measured at step 4: the two axes
+keep about 20% of the variance (fixed 12.3% + 7.9%, heading 10.7% +
+7.6%, heading+context 11.9% + 9.2%), and the UI prints that share under
+the map. The map shows chunks
 colored by document, the query as a marker, and lines to the retrieved
 chunks. The UI says plainly that two dimensions distort distances, so a
 chunk that looks close may not be.
@@ -643,7 +648,7 @@ Steps marked 🦙 need Ollama running.
 | 1 | **Skeleton.** `git init`, remote `origin` set to the GitHub repo (§13, #8); no push without your go-ahead. audit-comments first, then tsconfigs, `.gitattributes`, `.gitignore`, LICENSE, `.env.example`, package.json with scripts stubbed, `shared/types.ts` draft, `check-env` | `npm run check-env` prints its lines |
 | 2 | **Corpus.** All documents and `corpus/README.md` with the trap list. Reviewed by you before step 3, because every expected answer depends on it | a corpus you've read and approved |
 | 3 | **Chunking.** `shared/chunk.ts`, three strategies, tests | `npm test` passes; a script prints chunk counts and the five longest and shortest chunks per strategy |
-| 4 🦙 | **Index.** schema, `scripts/index.ts`, `project.ts`, corpus hash stored in each index | `npm run index` builds the three `data/index-<strategy>.db` files, printing chunk count, time and settings for each; editing a corpus file makes `npm run check-env` report the indexes as stale |
+| 4 🦙 | **Index.** schema, `scripts/index.ts`, `tool-server/pca.ts`, corpus hash stored in each index | `npm run index` builds the three `data/index-<strategy>.db` files, printing chunk count, time and settings for each; editing a corpus file makes `npm run check-env` report the indexes as stale |
 | 5 🦙 | **Search and tool server.** vector, keyword, fusion, `search_docs`, `get_document`, `list_documents`; `try-tools` | `npm run try-tools`: the exact-term query finds `EP-14` by keyword and misses by vector (if vector finds it too, that's recorded, not engineered away) |
 | 6 | **Question set.** 30 files; a self-check that every gold span exists verbatim in the corpus; the decline and conflict phrase lists (§8), written before any answer run | `npm run eval -- --check` prints "30 questions, all spans found" |
 | 7 | **Retrieval scorecard.** retrieval pass of `eval.ts`, with the hit rules; pick chunking defaults once from it | the retrieval table; defaults written into §4.1 with the measured reason |
