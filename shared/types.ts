@@ -246,6 +246,8 @@ export interface TurnSummary {
   peakWindowShare: number;
   /** Chunks placed into requests (a chunk sent twice counts twice). */
   chunksSent: number;
+  /** The ids of those chunks, in the order sent. The scorecard checks them for gold spans. */
+  sentChunkIds: string[];
   /** Labels cited in the answer that were, and weren't, in a request. */
   citations: { valid: string[]; invalid: string[] };
   /** Ollama reported fewer prompt tokens than the messages hold: something was dropped. */

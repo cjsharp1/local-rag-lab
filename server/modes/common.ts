@@ -12,10 +12,12 @@
  *                DETECTOR: when Ollama reports far fewer prompt tokens than
  *                the messages contain, it silently dropped some, and the
  *                log says so as an error.
- *   search()     calls search_docs over MCP, then picks what fits
+ *   search()     calls search_docs over MCP, reranks the top candidates if
+ *                rerank is on (context/rerank.ts), then picks what fits
  *                (context/budget.ts) and logs every step: the search, what
- *                the floor removed, what fell past top-k, each chunk that
- *                didn't fit the budget, and what was kept.
+ *                the floor removed, the rerank's before and after, what fell
+ *                past top-k, each chunk that didn't fit the budget, and what
+ *                was kept.
  *   finish()     checks every cited label against the labels actually sent,
  *                logs the turn's stage timings, and returns a TurnSummary.
  *
@@ -29,6 +31,7 @@ import { estimateTokens } from "../../shared/chunk.js";
 import type { AnswerMode, Candidate, ChunkSpan, ChunkStrategy, LogActor, SearchResult, SearchSettings, TurnSummary } from "../../shared/types.js";
 import { chunkBudget, estimateMessages, selectChunks, type Selection } from "../context/budget.js";
 import { chunkCost, citedLabels } from "../context/assemble.js";
+import { rerank, RERANK_N } from "../context/rerank.js";
 import { n, truncate, type Logger } from "../logger.js";
 import type { ToolServerClient } from "../mcp/client.js";
 import { chat, ms, NUM_PREDICT, ollamaConfig, tokensPerSecond, type ChatRequest, type ChatResponse, type OllamaMessage } from "../model/ollama.js";
@@ -80,6 +83,7 @@ export class Turn {
       peakWindowShare: 0,
       chunksSent: 0,
       citations: { valid: [], invalid: [] },
+      sentChunkIds: [],
       droppedMessages: false,
       timings: { total: 0 },
     };
@@ -196,7 +200,29 @@ export class Turn {
       );
     }
 
-    const selection = selectChunks(result.candidates, { topK: r.settings.topK, budget, budgetCheck: r.settings.budgetCheck }, chunkCost);
+    // The optional rerank stage (PLAN §4.4): the chat model re-scores the
+    // top candidates against the reader's QUESTION (not the model's query in
+    // search-tool mode: the question is what the answer has to serve).
+    let ranked = result.candidates;
+    if (r.settings.rerank && ranked.length > 0) {
+      const outcome = await rerank(r.model, r.question, ranked);
+      t.rerank = (t.rerank ?? 0) + outcome.ms;
+      t.generateLoad = (t.generateLoad ?? 0) + outcome.loadMs;
+      const top = Math.min(RERANK_N, ranked.length);
+      if (outcome.scores) {
+        ranked = outcome.candidates;
+        this.logger.retrieval(
+          `Reranked the top ${top} · order changed for ${outcome.moved} · ${seconds(outcome.ms)} (slow by design)`,
+          { before: result.candidates.slice(0, top).map((c) => c.chunkId), after: ranked.slice(0, top).map((c) => `${c.chunkId} (${c.rerankScore})`), request: outcome.request, response: outcome.response },
+          { because: "rerank is on" },
+        );
+      } else {
+        this.logger.warn(`The reranker's reply couldn't be read, so the search order was kept · ${seconds(outcome.ms)}`,
+          { reply: outcome.response.message.content, request: outcome.request }, { actor: "model", because: "it must be exactly one score from 0 to 3 per passage" });
+      }
+    }
+
+    const selection = selectChunks(ranked, { topK: r.settings.topK, budget, budgetCheck: r.settings.budgetCheck }, chunkCost);
     const pastTopK = selection.dropped.filter((d) => d.reason === "past-top-k");
     if (pastTopK.length > 0) {
       this.logger.retrieval(`${pastTopK.length} more candidates past top-${r.settings.topK}, not sent`,
@@ -212,6 +238,7 @@ export class Turn {
       selection.kept.map((c) => c.chunkId),
     );
     this.summary.chunksSent += selection.kept.length;
+    this.summary.sentChunkIds.push(...selection.kept.map((c) => c.chunkId));
     return { result, selection };
   }
 

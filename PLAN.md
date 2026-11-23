@@ -5,11 +5,12 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–8 done.** The corpus is
+Status: **all decisions made (§13); steps 0–9 done.** The corpus is
 approved; the chunker, the indexes, the MCP search tools, the question
-set, the retrieval scorecard and the three answer modes are built
-(`npm run ask`, `npm run compare`). Defaults: `heading+context`,
-`default` preset, hybrid mode, top-k 4, floor 0.50. Sections below will be
+set, the three answer modes, the rerank stage and the full scorecard
+(`npm run eval`, docs/scorecard.md, results in §8) are built. Defaults:
+`heading+context`, `default` preset, hybrid mode, top-k 4, floor 0.50.
+Next: the UI (step 10). Sections below will be
 corrected wherever a build step proves them wrong.
 
 Conventions in this document:
@@ -735,10 +736,78 @@ outcome. Plus requests, prompt tokens (estimated and actual) and time per
 question.
 
 The headline table puts both together, so a reader can see retrieval
-misses turning into invented answers. Answer pass run time **estimate**:
-30 questions × 3 modes × 1 model ≈ 20–30 min on this machine, measured at
-step 9. Results go to `docs/scorecard.md`. Nothing is tuned after the
-final run.
+misses turning into invented answers. Results go to `docs/scorecard.md`,
+and every answer's full text to `docs/scorecard.json`. Nothing is tuned
+after the final run.
+
+### Measured at step 9 (`npm run eval`, qwen3.5:4b, Ollama 0.40.17)
+
+**Run time: 9.8 minutes in all** (retrieval ~0.5, answers **7.5**,
+rerank **1.8**), against the draft's 20–30 minute estimate for the answer
+pass alone: the default chunks are small, so prompts average 1,229 tokens
+(pre-retrieved) and 2,091 (search-tool).
+
+| Mode | correct | declined | conflict-flagged | invented | citations valid / not sent |
+|---|---|---|---|---|---|
+| none | 1 → **0** | 26 → **28** | 0 | 3 → **2** | 0 / 2 |
+| pre-retrieved | 20 | 7 | 1 | 2 | 29 / 0 |
+| search-tool | 21 | 6 | 2 | 1 | 28 / 1 |
+
+(Arrows: the hand audit below. The scorecard shows the scorer's counts.)
+
+What it says, against the lessons in §1:
+
+- **Retrieval caps answer quality (lesson 2), cleanly.** When every gold
+  hop was in the prompt, pre-retrieved was correct 20 of 21 times and
+  search-tool 20 of 22, with no invented answers; the rest flagged the
+  stale conflict. When the gold wasn't there, the model mostly declined
+  (pre-retrieved 4 of 6, search-tool 3 of 5). Every invented answer from
+  a retrieval mode came from a prompt missing a hop, or holding the 2025
+  sheet instead of the 2026 one.
+- **No-retrieval declines more than it invents.** With "answer only from
+  the documents" and no documents, qwen declined 28 of 30. The two
+  inventions are the lesson in miniature: a 5 p.m. return deadline (it's
+  6 p.m.) and a "$15 per person" late fee (it's $35 per boat), each with
+  a citation to a chunk that was never sent. The draft expected
+  invention to be the norm; it's the exception, and more dangerous for it.
+- **The stale sheet is the hardest trap: 0 of 2 correct in every mode.**
+  Given both rate sheets, the model gives both years (3 conflict-flagged);
+  given only the 2025 sheet, it answers from it ($58 for the Kevlar
+  canoe). multi-hop-3 shows the same behavior and scores **invented**,
+  because conflict-flagged exists only for the stale category (§8 rules).
+- **Multi-hop: 0 of 3 in every mode.** Search-tool mode was meant to
+  have a chance here. It didn't take it: **qwen searched exactly once on
+  28 of 30 questions and never twice**, and answered 2 without searching.
+  On the EP-14 question it saw the Heron Chain Loop's portage table,
+  didn't know EP-14 was Heron Lake, and declined instead of searching
+  again.
+- **Search-tool's edge is query rewriting.** 21 correct to pre-retrieved's
+  20, the difference in paraphrase questions (4 to 3): "Can our pup come
+  along?" became a search for "pup dog pet allowed on trip". It costs
+  1.7× the prompt tokens and 1.6× the time.
+- **Citations are mostly honest.** 57 valid labels in the two retrieval
+  modes against one not sent (a plausible-looking id the model made up).
+
+**Rerank pass:** hit@4 21 → **23** of 27, two gained (paraphrase-5 and
+stale-1, which moved the 2026 rate row into the top 4), none lost, no
+unreadable replies; **3.9 s per search** added.
+
+### Scorer audit (step 9, by hand)
+
+The scorecard lists every answer the phrase heuristics classified (42),
+and every answer was read against its outcome. **Two are wrong**, both in
+no-retrieval mode and both the scorer's fault, not the model's:
+
+| Answer | Scored | Should be | Why |
+|---|---|---|---|
+| multi-hop-2, none: "The documents do not **state** the cost of the shuttle…" | invented | declined | "do not state" isn't in the frozen `DECLINE_PHRASES` list |
+| paraphrase-2, none: "The documents do not specify which life vest… for a **child**…" | correct | declined | the only required fact, "child", is echoed from the question; correct is checked before declined |
+
+The phrase lists stay frozen and the scorer isn't changed after the
+final run (§8): the scorecard keeps the scorer's numbers, and the audit
+lives here. The second error points at a rule worth having in a future
+version: a required fact that appears in the question itself shouldn't
+count as evidence.
 
 **Tuning on the test set.** Chunking defaults are picked once, at step 7,
 from the same 30 questions the scorecard reports. With 30 questions a
@@ -809,7 +878,7 @@ Invariants specific to this lab:
 |---|---|---|
 | **Model swapping** between the embeddings and chat models on 4 GB | every question pays 5–8 s twice | step 0 measured no swap at `num_ctx` 8192 (both models fit); `load_duration` is logged as its own stage, so a swap under other settings is visible |
 | **llama3.2:3b hides tools after a tool result** (measured earlier) | search-tool mode can only search once | reported as a model finding, as in the prompt injection lab; qwen is the default |
-| **The small model never calls `search_docs`** | search-tool mode looks like no-retrieval | that's a result, counted per question; the system prompt isn't reworded to force it after measurement |
+| **The small model never calls `search_docs`** | search-tool mode looks like no-retrieval | that's a result, counted per question; the system prompt isn't reworded to force it after measurement. *Measured at step 9: it skipped searching on 2 of 30, but never searched twice, which is the bigger loss (§8)* |
 | **The corpus is too easy** | every configuration hits, and nothing differs | the traps are planted and listed; if the step 7 table shows no differences, the corpus is fixed *before* the answer pass, and the change is recorded |
 | **The corpus is tuned to make a point** | results stop being honest | traps are written in step 2, before any measurement; after step 7, only documented fixes; nothing changes after step 9 |
 | **Silent history truncation** | big top-k drops history without saying so | the data lab's drop detector, plus the budget check |
@@ -848,7 +917,7 @@ pending, are in `docs/verified-facts.md`; the changes are folded into
 |---|---|---|
 | 1 | Business name, domain and accent color | **Decided:** **Paddle Section Supply**, `paddlesectionsupply.example`; accent **deep green** |
 | 2 | Link the other labs from the README? | **Decided: no.** Standalone like the others; one sentence on structured data vs. tools, with no link |
-| 3 | Default chat model | **Decided: qwen3.5:4b**, llama3.2:3b selectable; revisit after step 9 |
+| 3 | Default chat model | **Decided: qwen3.5:4b**, llama3.2:3b selectable. Revisited after step 9: kept. qwen answered 20–21 of 27 answerable questions correctly with retrieval, declined rather than invented when it lacked the facts, and produced no unreadable rerank replies. llama3.2:3b isn't scored (one model × 30 questions × 3 modes per run); scoring it is future work |
 | 4 | Reranker | **Decided: the chat model, off by default** in v1; a transformers.js cross-encoder (another ~100 MB download, CPU only) as future work |
 | 5 | Map projection | **Decided: PCA from scratch** (stable, teachable); UMAP as future work |
 | 6 | Chunk sizes exposed in the UI | **Decided: three presets per strategy**, not free text, so a rebuild stays under ~1 min (**estimate**) |

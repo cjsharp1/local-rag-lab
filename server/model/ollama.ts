@@ -70,6 +70,12 @@ export interface ChatRequest {
   model: string;
   messages: OllamaMessage[];
   tools?: OllamaTool[];
+  /**
+   * A JSON Schema the reply must match (structured output). Used only by
+   * the reranker, in a request with no tools: the data lab measured that
+   * `format` alongside `tools` stops tool calling entirely.
+   */
+  format?: Record<string, unknown>;
   think: boolean;
   stream: true;
   options: { num_ctx: number; num_predict: number; temperature: number; seed: number };
@@ -135,11 +141,19 @@ export function ollamaConfig(): { url: string; model: string; numCtx: number } {
 }
 
 /** Builds a request with every fixed setting. Callers supply only what varies. */
-export function buildRequest(parts: { model: string; messages: OllamaMessage[]; tools?: OllamaTool[]; think?: boolean }): ChatRequest {
+export function buildRequest(parts: {
+  model: string;
+  messages: OllamaMessage[];
+  tools?: OllamaTool[];
+  format?: Record<string, unknown>;
+  think?: boolean;
+}): ChatRequest {
+  if (parts.tools && parts.format) throw new Error("A request can't carry both tools and a format: format stops tool calling.");
   return {
     model: parts.model,
     messages: parts.messages,
     ...(parts.tools ? { tools: parts.tools } : {}),
+    ...(parts.format ? { format: parts.format } : {}),
     think: parts.think === true,
     stream: true,
     options: { num_ctx: ollamaConfig().numCtx, num_predict: NUM_PREDICT, temperature: 0, seed: 1 },

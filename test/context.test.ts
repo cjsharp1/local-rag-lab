@@ -14,7 +14,9 @@
  *     results can't each fit and together overflow the window;
  *   - the assembler (server/context/assemble.ts) records spans whose text
  *     is exactly each chunk's text, in the order sent;
- *   - cited labels are read out of an answer exactly once each.
+ *   - cited labels are read out of an answer exactly once each;
+ *   - the reranker (server/context/rerank.ts) accepts only a well-formed
+ *     reply and reorders the scored top without touching the rest.
  */
 
 import assert from "node:assert/strict";
@@ -23,6 +25,7 @@ import { describe, test } from "node:test";
 import type { Candidate } from "../shared/types.js";
 import { chunkCost, chunkHeader, citedLabels, preRetrievedMessage, toolResultMessage } from "../server/context/assemble.js";
 import { chunkBudget, estimateMessages, selectChunks, TOKENS_PER_MESSAGE } from "../server/context/budget.js";
+import { applyScores, parseScores, rerankRequest } from "../server/context/rerank.js";
 
 /** A candidate whose text is `tokens` × 4 characters. */
 function candidate(id: string, tokens: number): Candidate {
@@ -113,6 +116,33 @@ describe("assembling the request", () => {
 
   test("a chunk's cost covers its header as well as its text", () => {
     assert.ok(chunkCost(chunks[0]!) > chunks[0]!.estimatedTokens);
+  });
+});
+
+describe("reranking", () => {
+  const list = ["a", "b", "c", "d", "e"].map((id) => candidate(id, 10));
+
+  test("reads exactly n integer scores from 0 to 3", () => {
+    assert.deepEqual(parseScores('{"scores":[3,0,2]}', 3), [3, 0, 2]);
+  });
+
+  test("rejects a reply of the wrong length, out of range, not integers, or not JSON", () => {
+    for (const bad of ['{"scores":[3,0]}', '{"scores":[3,0,4]}', '{"scores":[3,0,1.5]}', '{"scores":"3,0,1"}', "3, 0, 1", ""]) {
+      assert.equal(parseScores(bad, 3), null, bad);
+    }
+  });
+
+  test("reorders the scored top by score, ties in search order, and leaves the rest behind", () => {
+    const out = applyScores(list, [1, 3, 1]);
+    assert.deepEqual(out.map((c) => c.chunkId), ["doc#b", "doc#a", "doc#c", "doc#d", "doc#e"]);
+    assert.deepEqual(out.slice(0, 3).map((c) => [c.rerankScore, c.rerankRank]), [[3, 1], [1, 2], [1, 3]]);
+    assert.equal(out[3]!.rerankScore, undefined, "unscored candidates carry no rerank score");
+  });
+
+  test("the rerank request carries a format and no tools", () => {
+    const request = rerankRequest("qwen3.5:4b", "q?", list.slice(0, 2));
+    assert.ok(request.format !== undefined && request.tools === undefined);
+    assert.ok(request.messages[1]!.content.includes("Passage 2:"));
   });
 });
 

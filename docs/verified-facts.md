@@ -195,6 +195,27 @@ reply reserve covers an error this size with room left, and the drop
 detector watches for anything larger. Nothing is corrected to fit these
 numbers.
 
+### Ollama updated to 0.40.17 (re-checked at step 9)
+
+Ollama updated itself between steps 8 and 9 (0.40.16 → 0.40.17). Before
+the answer pass, the facts the lab depends on were re-run:
+
+| Fact | On 0.40.17 | Status |
+|---|---|---|
+| Embeddings match the stored index vectors | cosine 1.000000 for five chunks re-embedded and compared with `data/index-heading-context.db` | **confirmed**: no rebuild needed |
+| `truncate: false` refuses an over-long input | HTTP 400, "the input length exceeds the context length" | confirmed |
+| No rerank endpoint | `/api/rerank` → 404 | confirmed |
+| qwen3.5:4b thinks by default; `think: false` stops it | 579 characters of thinking for "Say OK." by default; none with `think: false` | confirmed |
+
+### Scorecard run times (step 9)
+
+| Pass | Measured | Plan's estimate | Status |
+|---|---|---|---|
+| Retrieval (9 indexes built, 27 configurations) | about 0.5 min | under 1 min | confirmed |
+| Answers (30 questions × 3 modes, qwen3.5:4b) | **7.5 min** | 20–30 min | **changed**: prompts are small (1,229 tokens average pre-retrieved) |
+| Rerank (27 questions) | 1.8 min, 3.9 s per rerank request | 5–10 min | **changed** |
+| All passes | 9.8 min | — | measured |
+
 ### qwen3.5:4b behavior seen at step 8
 
 - **It declines when it has no documents.** With no retrieval, asked the
@@ -285,4 +306,3 @@ with thinking off.
 
 | Fact | Step |
 |---|---|
-| Answer-pass and rerank-pass run times | 9 |
