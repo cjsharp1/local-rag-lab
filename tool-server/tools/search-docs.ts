@@ -44,6 +44,8 @@ const candidateSchema = z.object({
   docId: z.string(),
   headingPath: z.array(z.string()),
   text: z.string(),
+  start: z.number(),
+  end: z.number(),
   estimatedTokens: z.number(),
   vectorScore: z.number(),
   vectorRank: z.number().optional(),

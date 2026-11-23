@@ -116,6 +116,8 @@ export function searchWithVector(
       docId: chunk.docId,
       headingPath: chunk.headingPath,
       text: chunk.text,
+      start: chunk.start,
+      end: chunk.end,
       estimatedTokens: chunk.estimatedTokens,
       vectorScore: v.score,
       vectorRank: v.rank,

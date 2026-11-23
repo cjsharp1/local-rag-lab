@@ -25,6 +25,8 @@ costs. This lab shows exactly that:
 - which chunks were kept, and why each of the rest was dropped (below the
   floor, past top-k, over the token budget);
 - the full request the model received, with every chunk highlighted inside it;
+- any chunk in place inside its whole source document (click it in the candidate
+  table, the request view or the map), to see what the chunker cut off around it;
 - prompt tokens (estimated and real), time per stage, and the share of the context window used;
 - where the question landed on a 2D map of the embeddings.
 
@@ -152,7 +154,8 @@ Start the lab, pick each question from **Question from the set**, and press **Co
 1. *We might not make it back until dinnertime on our final evening. Will that cost us?*
    Watch no-retrieval invent a fee and cite a chunk it never saw, then
    open **View request** on the pre-retrieved run to see the real fee
-   paragraph highlighted inside the prompt.
+   paragraph highlighted inside the prompt. Click that highlight to open
+   the rental agreement with the chunk in place.
 2. *Can our pup come along on the trip?* The dog answer sits at #13 in
    the candidate table, past top-4. Search-tool mode can rewrite the
    question into a better search, when it chooses to search at all.
@@ -222,11 +225,11 @@ records directly is usually the better fit than embedding them as text.
 | `npm run eval -- --check` | Checks the question set against the corpus in a second, no models needed |
 | `npm run eval -- --retrieval` | The retrieval pass only, printed |
 | `npm run chunk-report` | Chunk counts per strategy and preset, and the longest and shortest chunks |
-| `npm run try-tools` | Calls every MCP tool over stdio, no model: 14 checks |
+| `npm run try-tools` | Calls every MCP tool over stdio, no model: 15 checks |
 | `npm run tool-server:http` | The tool server over Streamable HTTP on 127.0.0.1:3401, for MCP Inspector |
 | `npm test` | 96 unit tests: chunking, search, fusion, the budget, assembly, scoring |
 | `npm run typecheck` | Both halves (Node and browser) |
-| `npm run audit-comments` | Checks that every one of the 60 TypeScript files opens with an explanation |
+| `npm run audit-comments` | Checks that every one of the 61 TypeScript files opens with an explanation |
 
 ## Project layout
 

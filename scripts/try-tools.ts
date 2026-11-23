@@ -130,6 +130,16 @@ const CASES: Array<[string, Check]> = [
       JSON.stringify(c && { ...c, text: undefined }));
   }],
 
+  ["every candidate's start/end slice its document to exactly the chunk's text (what the document view highlights)", async () => {
+    const { r } = await searchDocs({ query: "late return fee", strategy: "fixed" });
+    const docs = new Map<string, string>();
+    for (const c of r?.candidates.slice(0, 12) ?? []) {
+      if (!docs.has(c.docId)) docs.set(c.docId, String((await call("get_document", { id: c.docId })).data?.text ?? ""));
+      if (docs.get(c.docId)!.slice(c.start, c.end) !== c.text) return `${c.chunkId}: offsets ${c.start}–${c.end} don't slice to its text`;
+    }
+    return expect((r?.candidates.length ?? 0) > 0, "no candidates");
+  }],
+
   ["the strategy argument picks the index: fixed returns numbered chunks", async () => {
     const { r } = await searchDocs({ query: "late return fee", strategy: "fixed" });
     return expect(r?.strategy === "fixed" && (r?.candidates ?? []).every((c) => /#\d+$/.test(c.chunkId)), r?.candidates[0]?.chunkId ?? "none");

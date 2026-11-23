@@ -135,6 +135,12 @@ export interface Candidate {
   headingPath: string[];
   /** The chunk's original text, without any prepended context. */
   text: string;
+  /**
+   * Where the chunk sits in its document's text: text === document.slice(start, end).
+   * The UI's document view highlights exactly this range.
+   */
+  start: number;
+  end: number;
   /** Estimated tokens (characters ÷ 4). A heuristic, labeled as one. */
   estimatedTokens: number;
   /** Cosine similarity to the query vector. Always computed, for the log. */
@@ -390,7 +396,7 @@ export interface MapResponse {
   strategy: ChunkStrategy;
   preset: string;
   variance: [number, number];
-  chunks: Array<{ chunkId: string; docId: string; x: number; y: number }>;
+  chunks: Array<{ chunkId: string; docId: string; x: number; y: number; start: number; end: number }>;
 }
 
 // ---------------------------------------------------------------------------

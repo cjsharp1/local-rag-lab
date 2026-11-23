@@ -12,7 +12,8 @@
  * two axes keep only about a fifth of the spread of 768 dimensions, so
  * two dots that look close may not be. Retrieval never uses the map.
  * Hovering a dot names its chunk and, if the last search scored it, its
- * real similarity, which is the number to trust.
+ * real similarity, which is the number to trust. Clicking a dot opens the
+ * chunk inside its source document (doc-view.ts).
  *
  * Colors are the validated categorical slots 1–5 (styles.css, checked
  * with the dataviz validator for light and dark). In light mode three of
@@ -36,8 +37,12 @@ export class MapView {
   private folderOf = new Map<string, string>();
   private toScreen: (p: { x: number; y: number }) => [number, number] = () => [0, 0];
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
+  constructor(private readonly canvas: HTMLCanvasElement, private readonly onOpen: (chunkId: string) => void) {
     canvas.addEventListener("mousemove", (e) => this.hover(e));
+    canvas.addEventListener("click", (e) => {
+      const hit = this.nearest(e);
+      if (hit) this.onOpen(hit.chunkId);
+    });
     canvas.addEventListener("mouseleave", () => ($("map-tip").hidden = true));
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => this.draw());
   }
@@ -129,18 +134,26 @@ export class MapView {
     }
   }
 
-  private hover(e: MouseEvent): void {
+  /** The dot under the pointer, if any. The hit target is bigger than the dot. */
+  private nearest(e: MouseEvent): Point | undefined {
     const rect = this.canvas.getBoundingClientRect();
     const scale = this.canvas.width / rect.width;
     const mx = (e.clientX - rect.left) * scale;
     const my = (e.clientY - rect.top) * scale;
     let best: Point | undefined;
-    let bestDistance = 12 * scale; // the hit target is bigger than the dot
+    let bestDistance = 12 * scale;
     for (const p of this.points) {
       const [x, y] = this.toScreen(p);
       const d = Math.hypot(x - mx, y - my);
       if (d < bestDistance) [best, bestDistance] = [p, d];
     }
+    return best;
+  }
+
+  private hover(e: MouseEvent): void {
+    const rect = this.canvas.getBoundingClientRect();
+    const best = this.nearest(e);
+    this.canvas.style.cursor = best ? "pointer" : "default";
     const tip = $("map-tip");
     if (!best) {
       tip.hidden = true;
@@ -148,7 +161,7 @@ export class MapView {
     }
     const score = this.scores.get(best.chunkId);
     tip.textContent = `${best.chunkId} · ${best.folder}` + (score !== undefined ? ` · similarity ${score.toFixed(3)}` : "") +
-      (this.sent.has(best.chunkId) ? " · sent to the model" : "");
+      (this.sent.has(best.chunkId) ? " · sent to the model" : "") + " · click to open";
     tip.style.left = `${e.clientX - rect.left}px`;
     tip.style.top = `${e.clientY - rect.top}px`;
     tip.hidden = false;

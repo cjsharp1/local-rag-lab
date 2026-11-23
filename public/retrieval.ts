@@ -13,7 +13,8 @@
  * sent (past top-k, over budget). It's built from the log rows the server
  * streams, not from a separate request, so it can only ever show what
  * actually happened. It's also the map's table view: the same chunks, as
- * text, for anyone who can't tell the map's colors apart.
+ * text, for anyone who can't tell the map's colors apart. Each chunk id
+ * is a link that opens the chunk inside its source document.
  */
 
 import type { ChunkStrategy, LogEvent, SearchMode, SearchResult, SearchSettings } from "../shared/types.js";
@@ -78,8 +79,15 @@ export class SearchTracker {
   }
 }
 
+/** A chunk id that opens the chunk in its source document (doc-view.ts). */
+function chunkLink(chunkId: string, onOpen: (chunkId: string) => void): HTMLButtonElement {
+  const button = el("button", { type: "button", class: "chunk-link", title: "Show this chunk inside its source document" }, chunkId);
+  button.addEventListener("click", () => onOpen(chunkId));
+  return button;
+}
+
 /** Draws the candidate table for the last search. */
-export function renderCandidates(table: HTMLTableElement, last: LastSearch | undefined): void {
+export function renderCandidates(table: HTMLTableElement, last: LastSearch | undefined, onOpen: (chunkId: string) => void): void {
   clear(table);
   if (!last) {
     table.append(el("tbody", {}, el("tr", {}, el("td", { class: "muted" }, "No search yet."))));
@@ -105,7 +113,7 @@ export function renderCandidates(table: HTMLTableElement, last: LastSearch | und
     const status = kept ? "kept" : last.overBudget.has(c.chunkId) ? "over budget" : "past top-k";
     body.append(el("tr", { class: kept ? "kept" : "dropped", title: c.text.slice(0, 300) },
       el("td", { class: "num" }, i + 1),
-      el("td", {}, c.chunkId),
+      el("td", {}, chunkLink(c.chunkId, onOpen)),
       el("td", { class: "num" }, `${c.vectorScore.toFixed(3)} (#${c.vectorRank ?? "?"})`),
       el("td", { class: "num" }, c.keywordRank !== undefined ? `#${c.keywordRank}` : "—"),
       el("td", { class: "num" }, c.fusedScore !== undefined ? c.fusedScore.toFixed(4) : "—"),

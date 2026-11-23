@@ -241,6 +241,7 @@ local-rag-lab/
 │   ├── retrieval.ts           the panel's settings and the candidate table (also the map's table view)
 │   ├── compare.ts             the three-column view and its summary table
 │   ├── map.ts                 the embedding map (canvas), legend, hover labels
+│   ├── doc-view.ts            a chunk shown in place inside its whole source document
 │   └── request-view.ts        full request with chunk spans highlighted
 ├── scripts/
 │   ├── audit-comments.ts      copied first, at step 1
@@ -711,6 +712,14 @@ all three**:
 The map tab shows each question land among the chunks, with lines to
 the four that were sent; the caption gives the share of variance the
 two axes keep (about 21%), so nobody mistakes it for the real distances.
+
+**Added after step 11: the Document tab.** Clicking a chunk in the
+candidate table, the request view or the map opens its source document
+(from `GET /api/documents/:id`, read from the index) with the chunk
+highlighted and the other sent chunks from that document underlined.
+Search candidates and `index_map` points now carry each chunk's `start`
+and `end` in its document; `try-tools` checks they slice to exactly the
+chunk's text.
 
 **Verified in a browser at step 10** (headless Edge over the DevTools
 protocol, light and dark, 1440 px and 390 px wide): the page loads with

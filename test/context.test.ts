@@ -31,7 +31,7 @@ import { applyScores, parseScores, rerankRequest } from "../server/context/reran
 function candidate(id: string, tokens: number): Candidate {
   return {
     chunkId: `doc#${id}`, label: `[doc#${id}]`, docId: "doc", headingPath: ["Doc", id], text: "x".repeat(tokens * 4),
-    estimatedTokens: tokens, vectorScore: 0.7,
+    estimatedTokens: tokens, vectorScore: 0.7, start: 0, end: tokens * 4,
   };
 }
 

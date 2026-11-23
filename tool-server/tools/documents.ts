@@ -79,7 +79,8 @@ interface IndexMap {
   preset: string;
   /** Share of the total variance each map axis keeps, 0–1. */
   variance: [number, number];
-  chunks: Array<{ chunkId: string; docId: string; x: number; y: number }>;
+  /** Each chunk's place on the map, and its character range in its document. */
+  chunks: Array<{ chunkId: string; docId: string; x: number; y: number; start: number; end: number }>;
 }
 
 const mapInput = z.object({
@@ -100,7 +101,7 @@ export const indexMap: ToolDefinition<typeof mapInput, IndexMap> = {
     strategy: z.enum(["fixed", "heading", "heading+context"]),
     preset: z.string(),
     variance: z.tuple([z.number(), z.number()]),
-    chunks: z.array(z.object({ chunkId: z.string(), docId: z.string(), x: z.number(), y: z.number() })),
+    chunks: z.array(z.object({ chunkId: z.string(), docId: z.string(), x: z.number(), y: z.number(), start: z.number(), end: z.number() })),
   }),
   async run({ strategy }) {
     let index;
@@ -114,7 +115,7 @@ export const indexMap: ToolDefinition<typeof mapInput, IndexMap> = {
       strategy: index.settings.strategy,
       preset: index.settings.preset,
       variance: index.settings.mapVariance,
-      chunks: index.chunks.map((c) => ({ chunkId: c.id, docId: c.docId, x: c.map.x, y: c.map.y })),
+      chunks: index.chunks.map((c) => ({ chunkId: c.id, docId: c.docId, x: c.map.x, y: c.map.y, start: c.start, end: c.end })),
     };
     return { data, text: `${data.chunks.length} chunks on the ${data.strategy} map; the axes keep ${(data.variance[0] * 100).toFixed(1)}% + ${(data.variance[1] * 100).toFixed(1)}% of the variance.` };
   },

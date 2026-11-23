@@ -7,7 +7,8 @@
  * where. Each message of the request is shown in full, in order, and
  * every chunk inside it is highlighted from the spans the app recorded
  * when it assembled the prompt (server/context/assemble.ts). Hovering a
- * highlight shows the chunk's label.
+ * highlight shows the chunk's label; clicking it opens the chunk inside
+ * its source document (doc-view.ts).
  *
  * Above the messages: the settings that went with the request (context
  * window, reply cap, thinking) and the tools offered, if any. In
@@ -19,12 +20,20 @@ import { clear, el, n } from "./dom.js";
 import type { RequestDetail } from "./log.js";
 
 /** A message's text with its chunk spans wrapped in <mark>. */
-function highlighted(content: string, spans: RequestDetail["chunkSpans"]): HTMLElement {
+function highlighted(content: string, spans: RequestDetail["chunkSpans"], onOpen: (chunkId: string) => void): HTMLElement {
   const pre = el("pre", { class: "content" });
   let at = 0;
   for (const span of [...spans].sort((a, b) => a.start - b.start)) {
     if (span.start < at) continue; // overlapping spans can't happen; skip rather than garble
-    pre.append(content.slice(at, span.start), el("mark", { title: span.label }, content.slice(span.start, span.end)));
+    const mark = el("mark", { class: "clickable", title: `${span.label}: click to see it inside its source document`, tabindex: "0", role: "button" }, content.slice(span.start, span.end));
+    mark.addEventListener("click", () => onOpen(span.chunkId));
+    mark.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onOpen(span.chunkId);
+      }
+    });
+    pre.append(content.slice(at, span.start), mark);
     at = span.end;
   }
   pre.append(content.slice(at));
@@ -32,7 +41,7 @@ function highlighted(content: string, spans: RequestDetail["chunkSpans"]): HTMLE
 }
 
 /** Fills the request view with one request. */
-export function showRequest(container: HTMLElement, detail: RequestDetail, label: string): void {
+export function showRequest(container: HTMLElement, detail: RequestDetail, label: string, onOpen: (chunkId: string) => void): void {
   clear(container);
   const { request, chunkSpans } = detail;
   const chars = request.messages.reduce((sum, m) => sum + m.content.length, 0);
@@ -55,7 +64,7 @@ export function showRequest(container: HTMLElement, detail: RequestDetail, label
       el("header", {},
         el("span", {}, `${i + 1}. ${message.role}${message.tool_name ? ` (${message.tool_name})` : ""}`),
         el("span", {}, `${n(message.content.length)} chars${spans.length > 0 ? ` · ${spans.length} chunk${spans.length === 1 ? "" : "s"}` : ""}`)),
-      highlighted(message.content, spans),
+      highlighted(message.content, spans, onOpen),
     ));
   });
 }

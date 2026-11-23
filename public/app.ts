@@ -14,6 +14,9 @@
  * table, the map's query marker and the request view are all built from
  * the rows the server sent, so the page can only show what happened.
  *
+ * Clicking a chunk anywhere (the candidate table, the request view, the
+ * map) opens it inside its source document in the Document tab.
+ *
  * A banner says so when an index is stale, or Ollama or the tool server
  * can't be reached, with the fix.
  */
@@ -21,6 +24,7 @@
 import type { AnswerMode, AnswerOutcome, AskBody, ChunkStrategy, MapResponse, MetaResponse, StreamEvent, TurnSummary } from "../shared/types.js";
 import { getJson, postStream } from "./api.js";
 import { CompareView } from "./compare.js";
+import { DocumentView } from "./doc-view.js";
 import { $, append, clear, el } from "./dom.js";
 import { LogView, type RequestDetail } from "./log.js";
 import { MapView } from "./map.js";
@@ -32,10 +36,17 @@ let busy = false;
 let mapStrategy: ChunkStrategy | undefined;
 
 const tracker = new SearchTracker();
-const mapView = new MapView($<HTMLCanvasElement>("map"));
+const docView = new DocumentView($("document-view"));
+const mapView = new MapView($<HTMLCanvasElement>("map"), openChunk);
+
+/** Opens a chunk inside its source document, with the last search's sent chunks marked too. */
+function openChunk(chunkId: string): void {
+  selectTab("document");
+  void docView.open(chunkId, tracker.last?.kept ?? []);
+}
 
 function viewRequest(detail: RequestDetail, label: string): void {
-  showRequest($("request-view"), detail, label);
+  showRequest($("request-view"), detail, label, openChunk);
   selectTab("request");
 }
 
@@ -63,7 +74,9 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(".tabs button"
 async function ensureMap(strategy: ChunkStrategy): Promise<void> {
   if (mapStrategy === strategy) return;
   try {
-    mapView.setMap(await getJson<MapResponse>(`/api/map?strategy=${encodeURIComponent(strategy)}`));
+    const map = await getJson<MapResponse>(`/api/map?strategy=${encodeURIComponent(strategy)}`);
+    docView.remember(map.chunks);
+    mapView.setMap(map);
     mapStrategy = strategy;
   } catch (error: unknown) {
     $("map-caption").textContent = `The map couldn't be loaded: ${error instanceof Error ? error.message : String(error)}`;
@@ -72,9 +85,10 @@ async function ensureMap(strategy: ChunkStrategy): Promise<void> {
 
 /** Keeps the candidate table and the map in step with the last search. */
 async function onSearchUpdate(): Promise<void> {
-  renderCandidates($<HTMLTableElement>("candidates"), tracker.last);
+  renderCandidates($<HTMLTableElement>("candidates"), tracker.last, openChunk);
   const last = tracker.last;
   if (!last) return;
+  docView.remember(last.result.candidates);
   await ensureMap(last.result.strategy);
   mapView.setSearch(last.result.queryMap, last.kept, last.result.candidates);
 }

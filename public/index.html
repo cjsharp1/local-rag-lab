@@ -65,7 +65,7 @@
         </div>
         <pre id="rebuild-log" class="small" hidden></pre>
         <h3>Candidates from the last search</h3>
-        <p class="muted small">Every chunk that passed the floor, in rank order. Kept rows are bold; the rest say why they weren't sent.</p>
+        <p class="muted small">Every chunk that passed the floor, in rank order. Kept rows are bold; the rest say why they weren't sent. Click a chunk to see it inside its source document.</p>
         <div class="table-wrap"><table id="candidates"><tbody><tr><td class="muted">No search yet.</td></tr></tbody></table></div>
       </div>
     </section>
@@ -76,10 +76,12 @@
         <button role="tab" data-tab="compare" aria-selected="false">Compare</button>
         <button role="tab" data-tab="request" aria-selected="false">Request view</button>
         <button role="tab" data-tab="map" aria-selected="false">Embedding map</button>
+        <button role="tab" data-tab="document" aria-selected="false">Document</button>
       </nav>
       <div class="tab" id="tab-log"><div id="log" class="log"><p class="muted">Ask a question, and every step shows up here as it happens.</p></div></div>
       <div class="tab" id="tab-compare" hidden><div id="compare-view"><p class="muted">Press "Compare all three" to see the modes side by side.</p></div></div>
       <div class="tab" id="tab-request" hidden><div id="request-view"><p class="muted">Click "View request" on a model request in the log to see exactly what the model received, with every retrieved chunk highlighted.</p></div></div>
+      <div class="tab" id="tab-document" hidden><div id="document-view"><p class="muted">Click a chunk (its id in the candidate table, a highlight in the request view, or a dot on the map) to see it in place, inside its whole source document.</p></div></div>
       <div class="tab" id="tab-map" hidden>
         <div id="map-legend" class="legend"></div>
         <div class="map-wrap"><canvas id="map" width="760" height="520" aria-label="Embedding map: each dot is a chunk, colored by document folder"></canvas><div id="map-tip" class="tip" hidden></div></div>
