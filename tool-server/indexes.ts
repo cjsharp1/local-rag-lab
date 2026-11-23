@@ -43,6 +43,17 @@ export class IndexMissingError extends Error {
 const loaded = new Map<ChunkStrategy, IndexEntry>();
 
 /**
+ * Opens one index file for searching: loaded into memory, with the file
+ * kept open read-only for keyword search. `currentHash` is the corpus as
+ * it is now, to decide staleness. Used here at startup and by the
+ * scorecard, which opens indexes it built into a temporary folder.
+ */
+export function openIndex(path: string, currentHash: string): IndexEntry {
+  const index = readIndex(path);
+  return { ...index, db: new DatabaseSync(path, { readOnly: true }), stale: index.settings.corpusHash !== currentHash };
+}
+
+/**
  * Loads every index file that exists. Returns one line per strategy for
  * the startup message, so a missing or stale index is said out loud.
  */
@@ -54,10 +65,9 @@ export function loadIndexes(): string[] {
     loaded.delete(strategy);
     const path = indexPath(strategy);
     try {
-      const index = readIndex(path);
-      const stale = index.settings.corpusHash !== hash;
-      loaded.set(strategy, { ...index, db: new DatabaseSync(path, { readOnly: true }), stale });
-      report.push(`${strategy}: ${index.chunks.length} chunks${stale ? " — STALE, built from a different corpus; run npm run index" : ""}`);
+      const entry = openIndex(path, hash);
+      loaded.set(strategy, entry);
+      report.push(`${strategy}: ${entry.chunks.length} chunks${entry.stale ? " — STALE, built from a different corpus; run npm run index" : ""}`);
     } catch (error: unknown) {
       // A missing file is "not built yet"; anything else is worth the details.
       const missing = (error as NodeJS.ErrnoException).code === "ENOENT" || /unable to open/i.test(String((error as Error).message));

@@ -6,7 +6,11 @@
     [
       {
         "doc": "damage-and-loss",
-        "text": "Loss of a boat through negligence is charged in full; that includes a boat left unsecured overnight and a boat left behind at a landing. Damage from towing a boat behind a motorboat is charged in full, since rented gear may not be towed behind a motorboat in the first place. And it applies only to boats: paddles, PFDs, tents and packs"
+        "text": "Loss of a boat through negligence is charged in full"
+      },
+      {
+        "doc": "damage-and-loss",
+        "text": "it applies only to boats: paddles, PFDs, tents and packs"
       }
     ]
   ],

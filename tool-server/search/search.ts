@@ -84,11 +84,23 @@ export interface SearchRequest {
   floor: number;
 }
 
-/** Runs one search against one loaded index. */
+/** Runs one search against one loaded index: embed the query, then rank. */
 export async function search(index: IndexEntry, request: SearchRequest): Promise<SearchResult> {
   const embedded = await embed([request.query], "query");
-  const queryVector = embedded.vectors[0]!;
+  return searchWithVector(index, request, embedded.vectors[0]!, { embed: embedded.totalMs, embedLoad: embedded.loadMs });
+}
 
+/**
+ * The ranking half of a search, for a query that's already embedded. The
+ * scorecard uses it to embed each question once and search nine indexes
+ * with the same vector; search() above is this plus one embed call.
+ */
+export function searchWithVector(
+  index: IndexEntry,
+  request: SearchRequest,
+  queryVector: Float32Array,
+  embedTimings: { embed: number; embedLoad: number },
+): SearchResult {
   const started = performance.now();
   const vector = rankByVector(queryVector, index.chunks.map((c) => c.vector));
   const keywordQuery = request.mode === "vector" ? null : buildKeywordQuery(request.query);
@@ -127,7 +139,7 @@ export async function search(index: IndexEntry, request: SearchRequest): Promise
     },
     totalChunks: index.chunks.length,
     queryMap: project(index.projection, queryVector),
-    timings: { embed: embedded.totalMs, embedLoad: embedded.loadMs, search: searchMs },
+    timings: { ...embedTimings, search: searchMs },
     indexStale: index.stale,
   };
 }

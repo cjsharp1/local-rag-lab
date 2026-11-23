@@ -5,9 +5,10 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–6 done.** The corpus is
-approved; the chunker, the three indexes, the MCP search tools and the
-30-question set are built and checked. Sections below will be
+Status: **all decisions made (§13); steps 0–7 done.** The corpus is
+approved; the chunker, the indexes, the MCP search tools, the question
+set and the retrieval scorecard are built. Defaults: `heading+context`,
+`default` preset, hybrid mode, top-k 4, floor 0.50. Sections below will be
 corrected wherever a build step proves them wrong.
 
 Conventions in this document:
@@ -297,8 +298,26 @@ Three strategies, chosen at index time:
 
 Size presets, the same for every strategy (decision #6), in estimated
 tokens: **small** 150/25 overlap, **default** 300/50, **large** 600/100.
-Defaults: `heading`, `default` (tuned once in step 7 against the
-scorecard, then frozen and recorded).
+
+**Defaults: `heading+context`, `default`** (chosen once at step 7, then
+frozen). The retrieval pass (`npm run eval -- --retrieval`, results in
+docs/scorecard.md) measured hit@4 for 27 answerable questions in all 27
+configurations. The selection rule was written into
+`scripts/eval-retrieval.ts` before the first run: highest hybrid hit@4,
+then hybrid MRR, then the preset nearest `default`. Hybrid hit@4:
+
+| Strategy | small | default | large |
+|---|---|---|---|
+| `heading` | 17 | 19 | 20 |
+| `heading+context` | 19 | **21** (MRR 0.724) | 21 (MRR 0.681) |
+| `fixed` | 17 | 16 | 20 |
+
+The plan's prior was `heading`. The rule chose `heading+context` because
+of the split-context questions (3/3 with the heading path embedded, 2/3
+without, 0/3 for `heading` in vector mode). `small` is worst in every
+strategy: chunks of ~100 tokens carry too little to match. This choice
+was made on the same questions the scorecard reports; with 30 questions
+there is no held-out set (§8).
 
 **Changed at step 3: heading packs whole sections.** The draft split at
 every heading. Measured on this corpus, that made 307 chunks averaging
@@ -363,6 +382,19 @@ along a table row.
   and each remaining word is quoted. Without the stopword list, "the"
   matches nearly every chunk and keyword search returns the corpus. The
   built query and the dropped words travel with every result.
+
+**Measured at step 7: hybrid can bury vector search's best hit.** On
+paraphrase questions, hybrid scored 3/5 against vector's 4/5
+(`heading+context`). For "Can our pup come along on the trip?", vector
+search ranks the dog answer #1, keyword search #89 and hybrid #13. The
+keyword query ORs every remaining word, and "trip" matches most of the
+corpus, so nearly every chunk appears in both lists. RRF rewards
+appearing in both over being first in one, and dozens of mediocre
+double-matches outrank vector's best. Hybrid still wins where it was
+meant to: exact terms (5/5 against vector's 4/5) and split context (3/3
+against 2/3). **Decided: kept as is and taught as a finding** rather than
+tuned away after seeing the numbers (fusing only each list's top N is the
+usual fix, and the README names it).
 
 ### 4.3 The context budget (`server/context/budget.ts`)
 
@@ -485,8 +517,20 @@ note on which trap it tests. Changed at step 6:
 corpus: every gold span is in its document (ignoring case and
 whitespace, never digits), every required fact is in the question's own
 gold text, every forbidden fact is in the corpus but not in the gold
-text, and the category counts match the table above. It passes with 30
-questions and 45 gold spans, and `npm test` runs the same check.
+text, no span is longer than 100 characters, and the category counts
+match the table above. It passes with 30 questions and 48 gold spans, and
+`npm test` runs the same check.
+
+**Changed at step 7: spans are at most 100 characters.** The first
+retrieval run showed `fixed` missing split-context-2 entirely, because
+its 336-character span straddled a chunk boundary: a span longer than the
+chunk overlap can be cut in two, and a cut span counts as a miss. That
+measured the span's length, not the strategy. Four spans were shortened
+to the clause holding the fact (with a second short span as an
+alternative where a question requires two facts), and `--check` now
+rejects any span longer than the `small` preset's overlap (100
+characters). Only retrieval measurement changed; no answer had been
+generated. The chunking choice above came out the same before and after.
 
 ---
 

@@ -6,7 +6,11 @@
     [
       {
         "doc": "rental-agreement",
-        "text": "If the Kettle Basin Wilderness Office closes the area, or issues a wind advisory that keeps your group off the water on its exit day, the charge is waived"
+        "text": "issues a wind advisory that keeps your group off the water on its exit day"
+      },
+      {
+        "doc": "rental-agreement",
+        "text": "If the Kettle Basin Wilderness Office closes the area"
       }
     ]
   ],

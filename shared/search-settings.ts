@@ -12,7 +12,7 @@
  * replaces it with a measured one (PLAN conventions).
  */
 
-import type { ChunkStrategy, SearchSettings } from "./types.js";
+import type { ChunkPreset, ChunkStrategy, SearchSettings } from "./types.js";
 
 /**
  * Reciprocal rank fusion's k (PLAN §4.2): a chunk at rank r in a list
@@ -43,5 +43,22 @@ export const DEFAULT_SEARCH: SearchSettings = {
   budgetCheck: true,
 };
 
-/** The index searched when nothing says otherwise (PLAN §4.1). */
-export const DEFAULT_STRATEGY: ChunkStrategy = "heading";
+/**
+ * The index searched when nothing says otherwise, and the size preset
+ * `npm run index` builds (PLAN §4.1). Chosen once at step 7 from the
+ * retrieval scorecard, by the rule in scripts/eval-retrieval.ts, and frozen.
+ *
+ * The rule picked heading+context / default: 21 of 27 hybrid hits at top
+ * 4, tied with heading+context / large and ahead on MRR (0.724 to 0.681).
+ * The plan's prior was plain `heading` (19 of 27). The difference is the
+ * split-context questions: 3 of 3 with the heading path embedded, 2 of 3
+ * without (docs/scorecard.md).
+ */
+export const DEFAULT_STRATEGY: ChunkStrategy = "heading+context";
+export const DEFAULT_PRESET: ChunkPreset = "default";
+
+/** How many top candidates the retrieval scorecard counts as kept: the default top-k. */
+export const SCORECARD_K = 4;
+
+/** MRR only credits a first gold chunk ranked this high or better. */
+export const MRR_CUTOFF = 10;

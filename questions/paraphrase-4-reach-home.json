@@ -6,7 +6,11 @@
     [
       {
         "doc": "general-faq",
-        "text": "There is no cell service past Ashby Lake. Once you leave Ashby Lake, assume you cannot call, text or load a map. Download maps before you leave, and tell someone at home your route and expected exit date. If you want a way to call for help, rent a satellite messenger with your gear"
+        "text": "There is no cell service past Ashby Lake"
+      },
+      {
+        "doc": "general-faq",
+        "text": "If you want a way to call for help, rent a satellite messenger with your gear"
       }
     ]
   ],

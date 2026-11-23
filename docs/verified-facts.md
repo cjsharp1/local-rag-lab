@@ -164,6 +164,13 @@ hundreds of similar codes; this one has twelve. Recorded as measured, not
 engineered away; whether keyword search earns its place is for the step
 7 scorecard to show across the five exact-term questions.
 
+### Checked at step 7 (retrieval scorecard)
+
+| Fact | Finding | Status |
+|---|---|---|
+| No gold chunk falls below the 0.50 floor | In all 27 configurations, every hop's best gold chunk scores at or above 0.50 | **confirmed, run** |
+| Keyword search earns its place on exact terms | Under `heading+context` / default: keyword 5/5, vector 4/5 (vector missed EP-31, ranking it #9). Keyword also finds all 3 split-context answers (vector 2/3). On paraphrase questions keyword gets 1/5 | **confirmed** for exact terms and split context; the cost on paraphrases is in PLAN §4.2 |
+
 ### FTS5 query building (step 5)
 
 `keyword.ts` turns raw text into a safe FTS5 query. Checked in the tests
@@ -238,7 +245,5 @@ with thinking off.
 
 | Fact | Step |
 |---|---|
-| No gold chunk falls below the 0.50 floor, across all 30 questions | 7 |
-| Whether keyword search earns its place on the exact-term questions | 7 |
 | Chars ÷ 4 against qwen's real `prompt_eval_count` | 8 |
 | Answer-pass and rerank-pass run times | 9 |

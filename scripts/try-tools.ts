@@ -166,7 +166,7 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log("\nFinding: where the chunk holding an exact code ranks (heading index, no floor).\n");
+  console.log("\nFinding: where the chunk holding an exact code ranks (default index, no floor).\n");
   console.log(`${"Query".padEnd(44)} ${"Chunk contains".padEnd(22)} ${"keyword".padStart(7)} ${"vector".padStart(7)} ${"hybrid".padStart(7)}`);
   for (const [query, needle] of [
     ["EP-14", "| EP-14 |"],

@@ -6,15 +6,10 @@
  *               npm run index -- --preset small        a different size preset
  *
  * This is the "ingestion" half of RAG, the half that happens before
- * anyone asks a question. For each chunking strategy it:
- *
- *   1. reads the corpus (tool-server/corpus.ts) and fingerprints it;
- *   2. cuts every document into chunks (shared/chunk.ts);
- *   3. embeds every chunk with the embeddings model, in batches
- *      (tool-server/embed.ts), with nomic's "search_document: " prefix;
- *   4. fits the 2D map to the chunk vectors (tool-server/pca.ts);
- *   5. writes it all, plus an FTS5 keyword index, to
- *      data/index-<strategy>.db (tool-server/db.ts).
+ * anyone asks a question. For each chunking strategy it reads the corpus
+ * and fingerprints it, then builds the index (tool-server/build.ts: cut
+ * into chunks, embed every chunk, fit the 2D map) and writes it, with an
+ * FTS5 keyword index, to data/index-<strategy>.db (tool-server/db.ts).
  *
  * It prints what it built and how long each stage took, so the cost of
  * ingestion is a number you've seen rather than an assumption. Embedding
@@ -27,12 +22,13 @@
 
 import "dotenv/config";
 
-import { chunkDocument, PRESETS } from "../shared/chunk.js";
-import type { ChunkPreset, ChunkStrategy, IndexSettings } from "../shared/types.js";
+import { PRESETS } from "../shared/chunk.js";
+import { DEFAULT_PRESET } from "../shared/search-settings.js";
+import type { ChunkPreset, ChunkStrategy } from "../shared/types.js";
+import { buildIndex } from "../tool-server/build.js";
 import { corpusHash, loadCorpus } from "../tool-server/corpus.js";
-import { indexPath, writeIndex, type IndexedChunk } from "../tool-server/db.js";
-import { embed, EmbedError } from "../tool-server/embed.js";
-import { fitPca, project } from "../tool-server/pca.js";
+import { indexPath, writeIndex } from "../tool-server/db.js";
+import { EmbedError } from "../tool-server/embed.js";
 
 const STRATEGIES: readonly ChunkStrategy[] = ["fixed", "heading", "heading+context"];
 
@@ -49,25 +45,22 @@ function option<T extends string>(flag: string, allowed: readonly T[]): T | unde
 }
 
 const strategies = [option("--strategy", STRATEGIES) ?? STRATEGIES].flat();
-const preset: ChunkPreset = option("--preset", Object.keys(PRESETS) as ChunkPreset[]) ?? "default";
+const preset: ChunkPreset = option("--preset", Object.keys(PRESETS) as ChunkPreset[]) ?? DEFAULT_PRESET;
 const size = PRESETS[preset];
 
 const docs = loadCorpus();
 const hash = corpusHash(docs);
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+const percent = (share: number) => `${(share * 100).toFixed(1)}%`;
 
 console.log(`\nIndexing ${docs.length} documents (corpus ${hash.slice(0, 12)}…), ` +
   `preset "${preset}" (${size.chunkTokens} tokens, ${size.overlapTokens} overlap, estimated).\n`);
 
 const started = performance.now();
 for (const strategy of strategies) {
-  const t0 = performance.now();
-  const chunks = docs.flatMap((doc) => chunkDocument(doc, strategy, size));
-  const chunkMs = performance.now() - t0;
-
-  let embedded;
+  let built;
   try {
-    embedded = await embed(chunks.map((c) => c.embedText), "document", (done, total) => {
+    built = await buildIndex(docs, hash, strategy, preset, (done, total) => {
       process.stdout.write(`\r  ${strategy.padEnd(16)} embedding ${done}/${total}`);
     });
   } catch (error: unknown) {
@@ -77,37 +70,20 @@ for (const strategy of strategies) {
     }
     throw error;
   }
+  const { index, timings } = built;
 
-  const t1 = performance.now();
-  const projection = fitPca(embedded.vectors);
-  const indexed: IndexedChunk[] = chunks.map((c, i) => ({ ...c, vector: embedded.vectors[i]!, map: project(projection, embedded.vectors[i]!) }));
-  const mapMs = performance.now() - t1;
-
-  const settings: IndexSettings = {
-    strategy,
-    preset,
-    chunkTokens: size.chunkTokens,
-    overlapTokens: size.overlapTokens,
-    embedModel: embedded.model,
-    dimensions: embedded.vectors[0]!.length,
-    corpusHash: hash,
-    builtAt: Date.now(),
-    chunkCount: indexed.length,
-    mapVariance: projection.variance,
-  };
-
-  const t2 = performance.now();
+  const t = performance.now();
   const path = indexPath(strategy);
-  writeIndex(path, { settings, projection, documents: docs.map(({ id, path, title, text }) => ({ id, path, title, text })), chunks: indexed });
-  const writeMs = performance.now() - t2;
+  writeIndex(path, index);
+  const writeMs = performance.now() - t;
 
-  const percent = (share: number) => `${(share * 100).toFixed(1)}%`;
-  process.stdout.write(`\r  ${strategy.padEnd(16)} ${String(indexed.length).padStart(4)} chunks → ${path.replace(/\\/g, "/").split("/").slice(-2).join("/")}\n`);
-  console.log(`  ${"".padEnd(16)} chunk ${seconds(chunkMs)} · embed ${seconds(embedded.totalMs)} ` +
-    `(${(embedded.totalMs / indexed.length).toFixed(0)} ms/chunk, ${embedded.promptTokens.toLocaleString("en-US")} model tokens, load ${seconds(embedded.loadMs)}) · ` +
-    `map ${seconds(mapMs)} · write ${seconds(writeMs)}`);
-  console.log(`  ${"".padEnd(16)} ${settings.embedModel}, ${settings.dimensions} dimensions; ` +
-    `the map's two axes keep ${percent(projection.variance[0])} + ${percent(projection.variance[1])} of the variance\n`);
+  const n = index.chunks.length;
+  process.stdout.write(`\r  ${strategy.padEnd(16)} ${String(n).padStart(4)} chunks → ${path.replace(/\\/g, "/").split("/").slice(-2).join("/")}\n`);
+  console.log(`  ${"".padEnd(16)} chunk ${seconds(timings.chunkMs)} · embed ${seconds(timings.embedMs)} ` +
+    `(${(timings.embedMs / n).toFixed(0)} ms/chunk, ${timings.modelTokens.toLocaleString("en-US")} model tokens, load ${seconds(timings.embedLoadMs)}) · ` +
+    `map ${seconds(timings.mapMs)} · write ${seconds(writeMs)}`);
+  console.log(`  ${"".padEnd(16)} ${index.settings.embedModel}, ${index.settings.dimensions} dimensions; ` +
+    `the map's two axes keep ${percent(index.projection.variance[0])} + ${percent(index.projection.variance[1])} of the variance\n`);
 }
 
 console.log(`Done in ${seconds(performance.now() - started)}.\n`);

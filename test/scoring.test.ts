@@ -23,7 +23,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { checkQuestions, loadQuestions } from "../server/questions.js";
-import { classifyAnswer, containsFact, containsSpan, normalizeForMatch } from "../shared/scoring.js";
+import { classifyAnswer, containsFact, containsSpan, normalizeForMatch, scoreRetrieval } from "../shared/scoring.js";
 import type { AnswerOutcome, Question } from "../shared/types.js";
 import { loadCorpus } from "../tool-server/corpus.js";
 
@@ -110,6 +110,50 @@ describe("classifying an answer", () => {
     assert.deepEqual(c.missing, []);
     assert.deepEqual(c.forbiddenFound, ["$58"]);
     assert.equal(c.conflictPhrase, true);
+  });
+});
+
+describe("scoring retrieval (hit rules)", () => {
+  const singleHop = {
+    hops: [[{ doc: "rates-2026", text: "| Kestrel 15 solo canoe | $48 per day |" }, { doc: "faq", text: "the Kestrel is $48" }]],
+  };
+  const twoHops = {
+    hops: [[{ doc: "entry-points", text: "| EP-14 | Heron Lake |" }], [{ doc: "heron", text: "at 290 rods" }]],
+  };
+  const chunk = (docId: string, text: string) => ({ docId, text });
+
+  test("a hop is found when any alternative span is inside a top-k chunk", () => {
+    const s = scoreRetrieval(singleHop, [chunk("x", "noise"), chunk("faq", "Yes, the Kestrel is $48 a day.")], 2);
+    assert.equal(s.hit, true);
+    assert.equal(s.firstGoldRank, 2);
+  });
+
+  test("past top-k is a miss, but still counts for the first gold rank", () => {
+    const s = scoreRetrieval(singleHop, [chunk("x", "a"), chunk("x", "b"), chunk("rates-2026", "| Kestrel 15 solo canoe | $48 per day | $288 |")], 2);
+    assert.equal(s.hit, false);
+    assert.equal(s.firstGoldRank, 3);
+  });
+
+  test("the span must come from the document it names", () => {
+    const s = scoreRetrieval(singleHop, [chunk("rates-2025", "| Kestrel 15 solo canoe | $48 per day |")], 4);
+    assert.equal(s.hit, false);
+    assert.equal(s.firstGoldRank, null);
+  });
+
+  test("a span straddling two chunks is in neither", () => {
+    const s = scoreRetrieval(singleHop, [chunk("rates-2026", "| Kestrel 15 solo"), chunk("rates-2026", "canoe | $48 per day |")], 4);
+    assert.equal(s.hit, false);
+  });
+
+  test("a multi-hop question needs every hop; some hops is partial", () => {
+    const both = scoreRetrieval(twoHops, [chunk("heron", "The longest is at 290 rods."), chunk("entry-points", "| EP-14 | Heron Lake | tow boat |")], 4);
+    assert.deepEqual([both.hit, both.partial, both.hopsFound], [true, false, 2]);
+    const one = scoreRetrieval(twoHops, [chunk("heron", "The longest is at 290 rods.")], 4);
+    assert.deepEqual([one.hit, one.partial, one.hopsFound], [false, true, 1]);
+  });
+
+  test("a question with no hops is never a hit", () => {
+    assert.equal(scoreRetrieval({ hops: [] }, [chunk("x", "anything")], 4).hit, false);
   });
 });
 

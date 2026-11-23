@@ -13,7 +13,8 @@
  *   - checkQuestions() checks them against the corpus: every gold span
  *     appears in its document (ignoring case and whitespace, never
  *     digits), every required fact appears in one of the question's own
- *     gold spans, every forbidden fact appears somewhere in the corpus
+ *     gold spans, no span is longer than MAX_SPAN_CHARS, every forbidden
+ *     fact appears somewhere in the corpus
  *     but in none of the gold spans, and the category counts match the
  *     plan.
  *
@@ -26,6 +27,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { CHARS_PER_TOKEN, PRESETS } from "../shared/chunk.js";
 import { containsAnyWording, containsFact, containsSpan } from "../shared/scoring.js";
 import type { Question, QuestionCategory } from "../shared/types.js";
 import type { CorpusDoc } from "../tool-server/corpus.js";
@@ -43,6 +45,14 @@ export const CATEGORY_COUNTS: Readonly<Record<QuestionCategory, number>> = {
   stale: 2,
   unanswerable: 3,
 };
+
+/**
+ * The longest a gold span may be: the overlap of the `small` preset
+ * (25 estimated tokens × 4 characters). A span no longer than the overlap
+ * always lies whole inside some `fixed` chunk, so a miss means the chunk
+ * wasn't retrieved, never that the span happened to straddle a boundary.
+ */
+export const MAX_SPAN_CHARS = PRESETS.small.overlapTokens * CHARS_PER_TOKEN;
 
 /** A question file that isn't shaped like a question. */
 export class QuestionFileError extends Error {
@@ -114,6 +124,10 @@ export function checkQuestions(questions: readonly Question[], docs: readonly Co
     const spans = q.hops.flat();
     q.hops.forEach((hop, h) => {
       for (const span of hop) {
+        // A span longer than the smallest preset's overlap can straddle a
+        // `fixed` chunk boundary and count as a miss for a reason that's
+        // about the span's length, not the strategy (found at step 7).
+        if (span.text.length > MAX_SPAN_CHARS) problems.push(`${q.id}: hop ${h + 1} span is ${span.text.length} characters; keep spans to ${MAX_SPAN_CHARS} or fewer: "${span.text.slice(0, 60)}…"`);
         const doc = byId.get(span.doc);
         if (!doc) problems.push(`${q.id}: hop ${h + 1} names document "${span.doc}", which isn't in the corpus`);
         else if (!containsSpan(doc.text, span.text)) problems.push(`${q.id}: hop ${h + 1} span not found in ${span.doc}: "${span.text}"`);

@@ -5,7 +5,7 @@
  * answered by plain string matching, and this file is the whole of it:
  *
  *   1. Does a chunk hold a gold span? Retrieval is scored this way: a
- *      chunk is a hit if its text contains the span.
+ *      chunk is a hit if its text contains the span (scoreRetrieval).
  *   2. Does an answer contain a required fact, or a forbidden one, or a
  *      phrase that declines or flags a conflict? Answers are scored this
  *      way, into exactly one outcome.
@@ -116,6 +116,56 @@ const hasPhrase = (answer: string, phrases: readonly string[]) => {
   const text = normalizeForMatch(answer);
   return phrases.some((p) => text.includes(normalizeForMatch(p)));
 };
+
+/** How one search did for one question (PLAN §8, hit rules). */
+export interface RetrievalScore {
+  /** Every hop has a gold span inside one of the top k chunks. */
+  hit: boolean;
+  /** Some hops found, not all. Only possible for multi-hop questions. */
+  partial: boolean;
+  hopsFound: number;
+  hops: number;
+  /**
+   * 1-based rank of the first candidate that holds any gold span from any
+   * hop, anywhere in the list (not only the top k), or null. MRR is built
+   * from this.
+   */
+  firstGoldRank: number | null;
+}
+
+/** Whether a chunk holds a gold span: the right document, and the span inside its own text. */
+export function chunkHoldsSpan(chunk: { docId: string; text: string }, span: { doc: string; text: string }): boolean {
+  return chunk.docId === span.doc && containsSpan(chunk.text, span.text);
+}
+
+/**
+ * Scores one ranked list of chunks against a question's gold hops.
+ *
+ * The rules (PLAN §8): a hop is found when any of its alternative spans is
+ * inside one of the top k chunks, from the document the span names. A
+ * span that straddles two chunks is in neither, which is a miss, on
+ * purpose: that's what `fixed` chunking does to a table row. The text
+ * matched is the chunk's own text, never the heading path heading+context
+ * prepends for embedding.
+ */
+export function scoreRetrieval(
+  question: Pick<Question, "hops">,
+  candidates: ReadonlyArray<{ docId: string; text: string }>,
+  k: number,
+): RetrievalScore {
+  const kept = candidates.slice(0, k);
+  const hopsFound = question.hops.filter((hop) => kept.some((chunk) => hop.some((span) => chunkHoldsSpan(chunk, span)))).length;
+  const allSpans = question.hops.flat();
+  const first = candidates.findIndex((chunk) => allSpans.some((span) => chunkHoldsSpan(chunk, span)));
+  const hops = question.hops.length;
+  return {
+    hit: hops > 0 && hopsFound === hops,
+    partial: hopsFound > 0 && hopsFound < hops,
+    hopsFound,
+    hops,
+    firstGoldRank: first < 0 ? null : first + 1,
+  };
+}
 
 /** An answer's outcome, and the evidence for it. */
 export interface Classification {
