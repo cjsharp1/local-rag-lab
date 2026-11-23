@@ -5,178 +5,681 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Local RAG Lab</title>
 <meta name="description" content="A local teaching lab for retrieval-augmented generation: one help assistant answering three ways (no retrieval, pre-retrieved chunks, a search tool the model calls), with every retrieved chunk, score and token visible, scored by code. Runs through Ollama. No API key, no hosted model.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-  /* A single reading column with data in aligned rows. Deep green is this
-     project's accent. Self-contained on purpose: inline CSS, no scripts,
-     no web fonts. Light and dark come from the same tokens. */
+  /* Layout: a single reading column. Spec-sheet register — the subject is
+     an instrument panel over a retrieval pipeline, so the page borrows that
+     vocabulary: hairline rules, monospace labels, data in aligned rows
+     rather than cards. Deep green is this project's accent. The one
+     editorial note is the Newsreader display face against Plex Mono.
+
+     Self-contained on purpose: inline CSS, no scripts, one font request.
+     Light and dark themes come from the same tokens, so a change to a
+     color is a change in one place. */
   :root {
-    color-scheme: light;
-    --bg: #f8f8f5;
+    --bg: #fbfaf8;
     --surface: #ffffff;
-    --sunk: #efefea;
-    --fg: #1d1f1c;
-    --fg-dim: #575b54;
-    --rule: #dcdcd4;
-    --accent: #1f6b45;
-    --accent-soft: #dcefe3;
-    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --surface-sunk: #f4f2ee;
+    --fg: #1a1815;
+    --fg-dim: #6a635a;
+    --fg-faint: #938b80;
+    --rule: #e0dbd2;
+    --rule-strong: #c8c1b6;
+    --accent: #2f6b3f;
+    --accent-soft: #e3efe5;
+    --good: #4a6b48;
+    --warn: #8a6410;
+
+    --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+    --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+      --bg: #16150f;
+      --surface: #1e1c17;
+      --surface-sunk: #26231d;
+      --fg: #ece8e0;
+      --fg-dim: #9d958a;
+      --fg-faint: #7a7368;
+      --rule: #35312a;
+      --rule-strong: #4a453c;
+      --accent: #8cc79a;
+      --accent-soft: #1c2a1f;
+      --good: #8fb58c;
+      --warn: #d9b45f;
       color-scheme: dark;
-      --bg: #121211; --surface: #1a1a19; --sunk: #242422; --fg: #f0efec;
-      --fg-dim: #b5b4aa; --rule: #383835; --accent: #5cc48d; --accent-soft: #1d3527;
     }
   }
   :root[data-theme="dark"] {
+    --bg: #16150f;
+    --surface: #1e1c17;
+    --surface-sunk: #26231d;
+    --fg: #ece8e0;
+    --fg-dim: #9d958a;
+    --fg-faint: #7a7368;
+    --rule: #35312a;
+    --rule-strong: #4a453c;
+    --accent: #8cc79a;
+    --accent-soft: #1c2a1f;
+    --good: #8fb58c;
+    --warn: #d9b45f;
     color-scheme: dark;
-    --bg: #121211; --surface: #1a1a19; --sunk: #242422; --fg: #f0efec;
-    --fg-dim: #b5b4aa; --rule: #383835; --accent: #5cc48d; --accent-soft: #1d3527;
   }
+
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 var(--font-body); }
-  main { max-width: 880px; margin: 0 auto; padding: 40px 16px 80px; }
-  header h1 { font-size: 2.2rem; line-height: 1.15; margin: 0 0 10px; }
-  header p { font-size: 1.1rem; color: var(--fg-dim); margin: 0; }
-  h2 { font-size: 1.35rem; margin: 52px 0 6px; padding-top: 16px; border-top: 1px solid var(--rule); }
-  h3 { font-size: 1.05rem; margin: 26px 0 6px; }
-  .sec-note { font-family: var(--font-mono); font-size: 0.82rem; color: var(--fg-dim); margin: 0 0 12px; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0 6rem;
+  }
+
+  /* ---- Masthead ---- */
+  header.top {
+    padding-block: 3.5rem 2rem;
+    border-bottom: 2px solid var(--fg);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(2.4rem, 7vw, 3.6rem);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-family: var(--font-display);
+    font-size: clamp(1.05rem, 2.6vw, 1.3rem);
+    line-height: 1.5;
+    color: var(--fg-dim);
+    margin: 1rem 0 0;
+    max-width: 40ch;
+  }
+
+  /* ---- Fact strip ---- */
+  .facts {
+    display: grid;
+    /* Four fixed columns rather than auto-fit. The column COUNT has to be
+       known for the rules below to strip the divider and indent from
+       whichever cell begins each row — auto-fit decides that at render
+       time, and there is no "first in row" selector to match it with.
+       The breakpoints below step it down to 2, then 1. */
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .fact {
+    /* Padding on the LEFT, so the divider to the left of a cell has air
+       between it and the text. */
+    padding: 1.1rem;
+    /* The divider belongs to the cell it precedes, not the one it
+       follows, so the strip never ends on a stray line. */
+    border-left: 1px solid var(--rule);
+    min-width: 0;
+  }
+  /* Whichever cell starts a row loses its divider and its left padding,
+     so its text lines up with the page margin. */
+  .fact:nth-child(4n + 1) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .fact dt {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+    margin: 0 0 0.3rem;
+  }
+  .fact dd {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .fact dd small {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--fg-dim);
+    letter-spacing: 0;
+  }
+
+  /* ---- Sections ---- */
+  section { padding-block: 2.75rem 0; }
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.75rem;
+    line-height: 1.2;
+    margin: 0 0 0.25rem;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .sec-note {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+    margin: 0 0 1.4rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 {
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    margin: 2rem 0 0.75rem;
+  }
+  p { margin: 0 0 1rem; max-width: 64ch; }
+  p:last-child { margin-bottom: 0; }
+
   a { color: var(--accent); }
-  code { font-family: var(--font-mono); font-size: 0.88em; background: var(--sunk); padding: 1px 4px; border-radius: 4px; }
-  pre { background: var(--sunk); padding: 12px 14px; border-radius: 8px; overflow-x: auto; font: 0.85rem/1.5 var(--font-mono); }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    background: var(--surface-sunk);
+    padding: 0.1em 0.35em;
+    border-radius: 2px;
+  }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  /* ---- Tables ---- */
+  .t-scroll { overflow-x: auto; margin: 0 0 1rem; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9rem;
+  }
+  caption {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+    padding-bottom: 0.5rem;
+  }
+  th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+    border-bottom: 1px solid var(--rule-strong);
+    padding: 0.5rem 0.9rem 0.5rem 0;
+    white-space: nowrap;
+  }
+  td {
+    border-bottom: 1px solid var(--rule);
+    padding: 0.65rem 0.9rem 0.65rem 0;
+    vertical-align: top;
+  }
+  th:last-child, td:last-child { padding-right: 0; }
+  td.mono, .num {
+    font-family: var(--font-mono);
+    font-size: 0.84rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  td.name { font-weight: 600; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  /* ---- Phase list ---- */
+  ol.phases {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: ph;
+    border-top: 1px solid var(--rule);
+  }
+  ol.phases li {
+    counter-increment: ph;
+    display: grid;
+    grid-template-columns: 2.6rem 1fr auto;
+    gap: 0 1rem;
+    align-items: baseline;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  ol.phases li::before {
+    content: counter(ph, decimal-leading-zero);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+  }
+  ol.phases .ph-name { font-weight: 500; min-width: 0; }
+  ol.phases .ph-steps {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--fg-faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  /* A phase already finished. The marker carries the state, so the row
+     does not need a second treatment to say the same thing twice. */
+  ol.phases li.done .ph-steps { color: var(--good); }
+
+  /* ---- Callout ---- */
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 0.9rem 1.1rem;
+    margin: 1.25rem 0;
+    font-size: 0.92rem;
+  }
+  .note p { max-width: none; }
+  .note .note-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+
+  /* ---- Gotcha list ---- */
+  ul.plain {
+    margin: 0 0 1rem;
+    padding-left: 1.1rem;
+    max-width: 64ch;
+  }
+  ul.plain li { margin-bottom: 0.5rem; }
+  ul.plain li::marker { color: var(--fg-faint); }
+
+  /* ---- Status row ---- */
+  .status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .status li {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    border: 1px solid var(--rule-strong);
+    padding: 0.3rem 0.6rem;
+    border-radius: 2px;
+    color: var(--fg-dim);
+  }
+  .status li.ok {
+    border-color: var(--good);
+    color: var(--good);
+  }
+  .status li.caution {
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+
+  figure { margin: 0 0 1rem; }
+  figure img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px; }
+  figcaption { font-size: 0.85rem; color: var(--fg-dim); margin-top: 0.4rem; }
+  pre { background: var(--surface-sunk); border: 1px solid var(--rule); border-radius: 6px; padding: 0.8rem 1rem; overflow-x: auto; font-size: 0.85rem; }
   pre code { background: none; padding: 0; }
-  figure { margin: 22px 0; }
-  figure img { width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 8px; display: block; }
-  figcaption { color: var(--fg-dim); font-size: 0.9rem; margin-top: 6px; }
-  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin: 18px 0; }
-  .facts div { background: var(--surface); padding: 12px 14px; }
-  .facts b { display: block; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
-  .facts span { color: var(--fg-dim); font-size: 0.85rem; }
-  .t-scroll { overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; margin: 10px 0; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
-  th { color: var(--fg-dim); font-weight: 600; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  td.mono { font-family: var(--font-mono); font-size: 0.85rem; white-space: nowrap; }
-  .note { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 18px 0; }
-  .note p { margin: 4px 0; }
-  ol.lessons li { margin-bottom: 8px; }
-  footer { margin-top: 56px; color: var(--fg-dim); font-size: 0.88rem; border-top: 1px solid var(--rule); padding-top: 14px; }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.25rem;
+    border-top: 2px solid var(--fg);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--fg-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+  }
+
+  /* Two columns: four cells get cramped before the layout is narrow
+     enough to stack, so this is the intermediate step. Cells 1 and 3
+     now begin a row. */
+  @media (max-width: 700px) {
+    .facts { grid-template-columns: repeat(2, 1fr); }
+    .fact {
+      padding-left: 1.1rem;
+      border-left: 1px solid var(--rule);
+    }
+    .fact:nth-child(2n + 1) {
+      padding-left: 0;
+      border-left: 0;
+    }
+    /* The second row needs a rule above it, now that cells sit below
+       each other rather than only beside each other. */
+    .fact:nth-child(n + 3) { border-top: 1px solid var(--rule); }
+  }
+
+  @media (max-width: 480px) {
+    /* Stacked: every cell begins its own row, so none of them carry a
+       divider or an indent. The separator becomes a rule between rows. */
+    .facts { grid-template-columns: 1fr; }
+    .fact {
+      padding-left: 0;
+      border-left: 0;
+      border-top: 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .fact:last-child { border-bottom: 0; }
+    ol.phases li { grid-template-columns: 2.2rem 1fr; }
+    ol.phases .ph-steps { grid-column: 2; }
+  }
 </style>
 </head>
 <body>
-<main>
-<header>
-  <h1>Local RAG Lab</h1>
-  <p>One help assistant, three ways to ground its answers, and every retrieved chunk, score and token on screen. Runs entirely on your machine through Ollama. No API key, no hosted model.</p>
-</header>
+<div class="wrap">
 
-<section>
-  <h2>What it is</h2>
-  <p class="sec-note">The premise</p>
-  <p>Retrieval-augmented generation is usually taught as a box diagram: documents, embeddings, a vector database, a model. The diagram hides the part that matters to a developer: what actually lands in the model's request, and what it costs.</p>
-  <p>This lab answers customer questions for <strong>Paddle Section Supply</strong>, an invented canoe outfitter, from 25 of its documents, and shows the whole pipeline: the query that was embedded, every candidate chunk with every score, which chunks were sent and why the rest weren't, the full request with each chunk highlighted inside it, and the tokens and seconds each step took. Every answer can be grounded three ways:</p>
-  <div class="t-scroll"><table>
-    <tr><th>Mode</th><th>Who retrieves</th></tr>
-    <tr><td><strong>No retrieval</strong></td><td>Nobody. The model answers from what it knows, or declines.</td></tr>
-    <tr><td><strong>Pre-retrieved</strong> (classic RAG)</td><td>The app searches before the model runs and pastes the chunks into one request.</td></tr>
-    <tr><td><strong>Search tool</strong> (agentic RAG)</td><td>The model calls <code>search_docs</code> with a query it writes, and can search again.</td></tr>
-  </table></div>
-  <p>Both retrieval modes call the same tool, over MCP. The only difference between classic and agentic RAG is who makes the call, and the activity log shows which.</p>
-  <figure>
-    <img src="docs/img/compare.png" alt="The compare view for 'Can our pup come along on the trip?': a summary table of requests, searches, chunks, prompt tokens, window share, time, citations and outcome for each mode, above three columns of log rows and answers" width="822" height="801">
-    <figcaption>The compare view: one question through all three modes, side by side. In this run the model chose not to search, and all three declined. In the scorecard run it searched and answered correctly. Whether a 4B model searches is one of the things the lab measures.</figcaption>
-  </figure>
-  <p>For a section-by-section tour, with code from the repo and screenshots from real runs, see <a href="docs/how-it-works.html">How it works</a>.</p>
-</section>
+  <header class="top">
+    <p class="eyebrow">Project overview · local teaching tool · no API key</p>
+    <h1>Local RAG Lab</h1>
+    <p class="standfirst">One help assistant on your own machine, three ways to ground its answers, and every retrieved chunk, score and token on screen, all scored by code.</p>
+  </header>
 
-<section>
-  <h2>What it teaches</h2>
-  <p class="sec-note">Six lessons, each measured on the reader's machine rather than asserted</p>
-  <ol class="lessons">
-    <li><strong>RAG is prompt construction.</strong> The model doesn't know the documents; the app pasted text into the request, and the request view shows exactly where.</li>
-    <li><strong>Retrieval quality caps answer quality.</strong> With every chunk it needed in the prompt, the model was right 40 times out of 43 and never invented. Every invented answer from a retrieval mode came from a prompt missing part of the answer.</li>
-    <li><strong>The modes trade differently.</strong> Pre-retrieval pays for context on every question and gets one try. The search tool costs 1.7× the prompt tokens and depends on a small model choosing to search, and searching well.</li>
-    <li><strong>Context is a budget.</strong> Every chunk not sent is logged with its reason, and the lab catches Ollama silently dropping messages from an overfull window.</li>
-    <li><strong>Embeddings capture meaning, not identifiers</strong>, and hybrid search exists for that reason. On this small corpus vector search found the exact codes too; hybrid won on split-context questions instead, and buried a paraphrase.</li>
-    <li><strong>A similarity score can't tell you the answer isn't there.</strong> A question the corpus can't answer still scored 0.748 against its best match, above several real answers.</li>
-  </ol>
-</section>
+  <dl class="facts">
+    <div class="fact">
+      <dt>Documents</dt>
+      <dd>25<small>26,586 words, traps planted</small></dd>
+    </div>
+    <div class="fact">
+      <dt>Questions</dt>
+      <dd>30<small>8 categories, gold spans</small></dd>
+    </div>
+    <div class="fact">
+      <dt>Answer modes</dt>
+      <dd>3<small>none · pre-retrieved · search tool</small></dd>
+    </div>
+    <div class="fact">
+      <dt>Port</dt>
+      <dd>3400<small>tool server 3401 over HTTP</small></dd>
+    </div>
+  </dl>
 
-<section>
-  <h2>What's in it</h2>
-  <p class="sec-note">Counted in the repo and the scorecard</p>
-  <div class="facts">
-    <div><b>25</b><span>documents, 26,586 words, with planted traps</span></div>
-    <div><b>30</b><span>questions in 8 categories, with gold spans</span></div>
-    <div><b>3</b><span>chunking strategies × 3 size presets</span></div>
-    <div><b>164</b><span>chunks in the default index</span></div>
-    <div><b>4</b><span>MCP tools on the tool server</span></div>
-    <div><b>96</b><span>unit tests</span></div>
-  </div>
-  <p>The corpus hides traps on purpose, listed in <code>corpus/README.md</code>: a 2025 rate sheet left beside the 2026 one with nothing marking it old; long sections whose answer paragraph never names its subject; long tables; exact codes; entry point codes mapped to names in one place only, so some answers need two documents; near-duplicates and decoys; and topics deliberately absent, so some questions have no answer.</p>
-</section>
+  <section>
+    <h2>What it is</h2>
+    <p class="sec-note">The premise</p>
+    <p>Retrieval-augmented generation is usually taught as a box diagram: documents, embeddings, a vector database, a model. The diagram hides the part that matters to a developer, which is what actually lands in the model's request, and what it costs. This lab shows that part, on your own machine.</p>
+    <p>A small open model runs locally through <strong>Ollama</strong> as the help assistant for <strong>Paddle Section Supply</strong>, an invented canoe and kayak outfitter, and answers customer questions from 25 of its documents: rental terms, rate sheets, permit rules, route guides, gear guides and FAQs. Every answer can be grounded three ways: with <strong>no retrieval</strong>; <strong>pre-retrieved</strong>, where the app searches first and pastes the chunks into the request; or with a <strong>search tool</strong> the model calls itself, with a query it writes.</p>
+    <p>The point is to see behind the scenes: the query that was embedded, every candidate chunk with every score, which chunks were sent and why the rest weren't, the full request with each chunk highlighted inside it, any chunk shown in place in its source document, and the tokens and seconds each step took. Code, never a model, scores every answer.</p>
+    <p>For a section-by-section walkthrough of ingestion, search, the context budget, the three modes, the scorer and the UI, with code from the repo and screenshots from real runs, see <a href="docs/how-it-works.html">How it works</a>.</p>
 
-<section>
-  <h2>Tech stack</h2>
-  <p class="sec-note">Node · Express · Ollama · SQLite FTS5 · vanilla TypeScript · no frontend framework, no vector database</p>
-  <div class="t-scroll"><table>
-    <thead><tr><th>Piece</th><th>Version</th><th>Role</th></tr></thead>
-    <tbody>
-      <tr><td>qwen3.5:4b</td><td class="mono">Q4_K_M</td><td>The chat model: answers, calls the search tool, reranks</td></tr>
-      <tr><td>nomic-embed-text</td><td class="mono">768 dims</td><td>Embeds chunks and queries, with its task prefixes</td></tr>
-      <tr><td>@modelcontextprotocol/server, /client, /node</td><td class="mono">2.4.0, 2.4.0, 2.1.2</td><td>The tool server over stdio (and HTTP for MCP Inspector), and the app's client</td></tr>
-      <tr><td>node:sqlite</td><td class="mono">SQLite 3.50.2</td><td>The index files, and FTS5 with BM25 for keyword search</td></tr>
-      <tr><td>express</td><td class="mono">5.3.0</td><td>The routes and the Server-Sent Events streams</td></tr>
-      <tr><td>zod</td><td class="mono">4.6.7</td><td>Tool inputs and outputs, request bodies</td></tr>
-    </tbody>
-  </table></div>
-  <p>Vector search is a loop over the chunks in plain TypeScript: 164 chunks take well under a millisecond, and nothing about it is hidden. The README says when a real vector database becomes worth it.</p>
-</section>
+    <figure>
+      <img src="docs/img/compare.png" alt="The compare view for 'Can our pup come along on the trip?': a summary table of requests, searches, chunks, prompt tokens, window share, time, citations and outcome for each mode, above three columns of log rows and answers." width="822" height="801">
+      <figcaption>The compare view: one question through all three modes. In this run the model chose not to search, and all three declined; in the scorecard run it searched and answered correctly. Whether a 4B model searches is one of the things the lab measures.</figcaption>
+    </figure>
 
-<section>
-  <h2>Running it</h2>
-  <p class="sec-note">Node 24+, Ollama, about 3.6 GB of models</p>
-<pre><code>npm install && ollama pull qwen3.5:4b && ollama pull nomic-embed-text
-npm run index && npm run check-env
-npm run dev          # http://127.0.0.1:3400</code></pre>
-  <p><code>npm run compare -- "your question"</code> runs all three modes in the terminal, and <code>npm run eval</code> regenerates the scorecard in about 10 minutes.</p>
-</section>
+    <div class="note">
+      <span class="note-label">The distinction the lab exists to make</span>
+      <p>Classic RAG and agentic RAG run the <strong>same search tool</strong>, over MCP. The only difference is <strong>who makes the call</strong>: the app, before the model runs, or the model, when it decides to. The activity log carries that difference in its actor column, and the scorecard measures what each costs and what each gets right.</p>
+    </div>
+  </section>
 
-<section>
-  <h2>What it measured</h2>
-  <p class="sec-note">30 questions × 3 modes, qwen3.5:4b, default settings; scored by code</p>
-  <div class="t-scroll"><table>
-    <tr><th>Mode</th><th class="num">correct</th><th class="num">declined</th><th class="num">invented</th><th class="num">avg prompt tokens</th><th class="num">avg time</th></tr>
-    <tr><td>No retrieval</td><td class="num">0</td><td class="num">28</td><td class="num">2</td><td class="num">164</td><td class="num">1.6 s</td></tr>
-    <tr><td>Pre-retrieved</td><td class="num">20</td><td class="num">7</td><td class="num">2</td><td class="num">1,229</td><td class="num">5.1 s</td></tr>
-    <tr><td>Search tool</td><td class="num">21</td><td class="num">6</td><td class="num">1</td><td class="num">2,091</td><td class="num">8.2 s</td></tr>
-  </table></div>
-  <p>The remaining answers flagged that the 2025 and 2026 rate sheets disagree. The no-retrieval row includes a hand audit of two answers the frozen scorer misclassified. Retrieval alone: the default index found the answer's chunks in the top 4 for 21 of 27 answerable questions, and reranking with the chat model raised that to 23, at 3.9 seconds a search.</p>
-  <div class="note"><p><strong>Read these as one run.</strong> A second full run matched it on 89 of 90 answers and on every rerank result; the one difference was the model choosing not to search. And the defaults were chosen on these same 30 questions, so there's no held-out set.</p></div>
-</section>
+  <section>
+    <h2>Tech stack</h2>
+    <p class="sec-note">Node · Express · Ollama · SQLite FTS5 · vanilla TypeScript · no frontend framework · no vector database</p>
 
-<section>
-  <h2>How it was built</h2>
-  <p class="sec-note">Eleven steps, each ending with typecheck, the comment audit and the tests passing, and one commit</p>
-  <p>Facts about the tools were verified on the machine before any code was written, and re-verified when Ollama updated mid-build. The corpus was written and reviewed before anything was measured, so its traps couldn't be tuned to a result. The rule for picking the default index was written into the code before the retrieval scorecard first ran. The answer scorer's phrase lists were frozen before any answer existed, and when a hand audit found them wrong twice, the mistakes were recorded rather than fixed after the fact. Where a measurement contradicted the plan (vector search finding exact codes, the model declining instead of inventing, a walkthrough that predicted the wrong outcome), the plan was corrected, not the measurement.</p>
-</section>
+    <h3>Runtime dependencies</h3>
+    <div class="t-scroll">
+      <table>
+        <thead>
+          <tr><th>Package</th><th>Version</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="name">@modelcontextprotocol/server</td><td class="mono">2.4.0</td><td>The tool server: <code>search_docs</code>, <code>get_document</code>, <code>list_documents</code>, <code>index_map</code></td></tr>
+          <tr><td class="name">@modelcontextprotocol/client</td><td class="mono">2.4.0</td><td>The app's side: spawns the tool server over stdio and calls it</td></tr>
+          <tr><td class="name">@modelcontextprotocol/node</td><td class="mono">2.1.2</td><td>Serves the tool server over HTTP on 3401, for MCP Inspector</td></tr>
+          <tr><td class="name">express</td><td class="mono">5.3.0</td><td>The app's routes and the answer's Server-Sent Events stream</td></tr>
+          <tr><td class="name">zod</td><td class="mono">4.6.7</td><td>Tool inputs and outputs, and request bodies</td></tr>
+          <tr><td class="name">dotenv</td><td class="mono">18.0.10</td><td>Loads an optional <code>.env</code>: ports, Ollama's address, models, context size. No secrets</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-<section>
-  <h2>Conventions held through the build</h2>
-  <ul>
-    <li>Every TypeScript file opens with a comment saying what it does, why it exists and what it teaches (61 files, checked by a script).</li>
-    <li>No API key, no outbound calls; cloud models refused by name.</li>
-    <li>Every server on 127.0.0.1, with Host and Origin checked.</li>
-    <li>Corpus text and model output rendered as text, never as HTML.</li>
-    <li>A number in the docs is measured or marked as an estimate; a heuristic is labeled as one.</li>
-  </ul>
-</section>
+    <h3>Build and dev toolchain</h3>
+    <div class="t-scroll">
+      <table>
+        <thead>
+          <tr><th>Package</th><th>Version</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="name">typescript</td><td class="mono">7.0.2</td><td>Two configs, one per half of the app</td></tr>
+          <tr><td class="name">tsx</td><td class="mono">4.23.15</td><td>Runs TypeScript directly and restarts on save</td></tr>
+          <tr><td class="name">@types/node</td><td class="mono">24.19.2</td><td>Server-side type definitions, pinned to the Node 24 line</td></tr>
+          <tr><td class="name">@types/express</td><td class="mono">5.0.6</td><td>Route and middleware types</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-<footer>
-  MIT licensed. Every name, place, product and domain in the corpus is invented.
-</footer>
-</main>
+    <h3>Platform</h3>
+    <div class="t-scroll">
+      <table>
+        <tbody>
+          <tr><td class="name">Node.js</td><td>24 or newer, for the built-in <code>node:sqlite</code> (SQLite 3.50.2, with FTS5); developed on <span class="num">24.4.1</span></td></tr>
+          <tr><td class="name">Ollama</td><td>Developed on <span class="num">0.40.16</span>, re-verified on <span class="num">0.40.17</span>. Cloud models are refused by name</td></tr>
+          <tr><td class="name">Models</td><td><code>qwen3.5:4b</code> (3.3 GB) answers, searches and reranks; <code>nomic-embed-text</code> (274 MB, 768 dimensions) embeds. <code>llama3.2:3b</code> is selectable</td></tr>
+          <tr><td class="name">Hardware</td><td>Measured on a laptop with 32 GB RAM and a 4 GB GPU. At an 8,192-token window qwen loads partly on the GPU, leaving room for the embeddings model beside it, so no question waits for a model swap</td></tr>
+          <tr><td class="name">Index</td><td>One SQLite file per chunking strategy, built by <code>npm run index</code> in about 8 s, holding the chunks, their vectors, an FTS5 keyword index and the corpus hash</td></tr>
+          <tr><td class="name">Frontend</td><td>Hand-written TypeScript compiled to ES modules. No React, no bundler, no CSS framework</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Why no vector database</h3>
+    <p>A few hundred chunks fit in memory, so vector search is a loop over arrays in plain TypeScript: 164 chunks take well under a millisecond, and a reader can step through every comparison. A vector database earns its place when that loop gets too slow or the vectors stop fitting in memory, and it trades a little recall for the speed. Until then, it would hide the one computation the lab exists to show.</p>
+  </section>
+
+  <section>
+    <h2>What's in it</h2>
+    <p class="sec-note">Built and working</p>
+
+    <h3>Four MCP tools</h3>
+    <div class="t-scroll">
+      <table>
+        <thead>
+          <tr><th>Tool</th><th>What it does</th><th>Why it matters here</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="name">search_docs</td><td>Vector, keyword or hybrid search over one index; returns every candidate that passes the floor, with every score</td><td>Both retrieval modes call it. The app picks top-k and fits the budget, so every dropped chunk is logged with its reason</td></tr>
+          <tr><td class="name">get_document</td><td>One document's full text, from the loaded index</td><td>The Document tab shows a chunk in place inside it</td></tr>
+          <tr><td class="name">list_documents</td><td>Every document, and which indexes are loaded and fresh</td><td>A stale index (built from an older corpus) is reported, not hidden</td></tr>
+          <tr><td class="name">index_map</td><td>Every chunk's position on the 2D embedding map</td><td>For the UI only; the model is never offered it</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Three chunking strategies</h3>
+    <div class="t-scroll">
+      <table>
+        <thead>
+          <tr><th>Strategy</th><th>Chunks</th><th>How it cuts</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="name">fixed</td><td class="mono">148</td><td>Every 300 estimated tokens with 50 of overlap, on word boundaries, wherever that lands</td></tr>
+          <tr><td class="name">heading</td><td class="mono">164</td><td>Packs whole Markdown sections up to 300 tokens; cuts a section only when it's too big on its own, keeping table rows whole</td></tr>
+          <tr><td class="name">heading+context</td><td class="mono">164</td><td>The same cuts, with the document title and heading path embedded in front of each chunk. The default, chosen by a rule written before the first measurement</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Each comes in three size presets (150, 300 and 600 tokens). Search runs in three modes: <strong>vector</strong> (cosine similarity against every chunk), <strong>keyword</strong> (SQLite FTS5 with BM25) and <strong>hybrid</strong> (the two rankings merged by reciprocal rank fusion). An optional rerank stage has the chat model score the top 8 against the question.</p>
+
+    <h3>A corpus with planted traps</h3>
+    <div class="t-scroll">
+      <table>
+        <thead>
+          <tr><th>Trap</th><th>What it tests</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="name">A stale rate sheet</td><td>The 2025 rates sit beside the 2026 ones, with nothing marking them old</td></tr>
+          <tr><td class="name">Split context</td><td>Long sections whose answer paragraph says "this fee" or "they", never its subject</td></tr>
+          <tr><td class="name">Long tables</td><td>A 29-row rate table and a 23-row damage table that fixed-size chunking cuts</td></tr>
+          <tr><td class="name">Exact codes</td><td>Entry points like <code>EP-14</code>, regulations like <code>KB-7</code>, product names</td></tr>
+          <tr><td class="name">Two-document answers</td><td>Entry point codes are mapped to names in one place only</td></tr>
+          <tr><td class="name">Decoys and absences</td><td>Near-duplicates that sound right and answer nothing, and topics the corpus never mentions</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The UI</h3>
+    <p>A two-column page at <code>127.0.0.1:3400</code>. On the left, the question box with the 30 set questions in a picker, the mode switch, <strong>Ask</strong> and <strong>Compare all three</strong>, and the <strong>retrieval panel</strong>: index, search mode, top-k, floor, rerank, budget check, rebuild, and the candidate table for the last search. On the right, five tabs: the <strong>activity log</strong>, streamed row by row; the <strong>compare view</strong>, three modes side by side with a summary table; the <strong>request view</strong>, the exact prompt with every retrieved chunk highlighted; the <strong>embedding map</strong>, every chunk as a dot with the question among them; and the <strong>Document</strong> tab, any chunk shown in place in its source document.</p>
+  </section>
+
+  <section>
+    <h2>Running it</h2>
+    <p class="sec-note">Node 24+ and Ollama</p>
+<pre><code>npm install
+ollama pull qwen3.5:4b
+ollama pull nomic-embed-text
+npm run index                # chunks and embeds the corpus: three index files, about 8 s
+npm run check-env            # checks each piece separately and says what to fix
+npm run dev                  # http://127.0.0.1:3400</code></pre>
+
+    <h3>Try these</h3>
+    <div class="t-scroll">
+      <table>
+        <thead>
+          <tr><th>Do this</th><th>What it shows</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><em>We might not make it back until dinnertime…</em>, Compare</td><td>No retrieval invents a "$15 per person" fee and cites a chunk it never saw; pre-retrieved finds $35 per boat</td></tr>
+          <tr><td>The same, then <strong>View request</strong> and click the highlight</td><td>The fee paragraph inside the prompt, then inside the rental agreement</td></tr>
+          <tr><td><em>Can our pup come along on the trip?</em></td><td>Hybrid search buries the dog answer at #13; search-tool mode can rewrite the query, when it chooses to search</td></tr>
+          <tr><td><em>How much does it cost to rent a Northline 17 Kevlar canoe for one day?</em></td><td>The stale 2025 rate sheet, and nothing in retrieval that knows it's old</td></tr>
+          <tr><td><em>Do day-use permits cost anything?</em> with the index on <code>heading</code>, then <code>heading+context</code></td><td>The answer chunk ranks #15, then #3, once its heading path is embedded with it</td></tr>
+          <tr><td><em>What's the longest portage on the route that starts at EP-14?</em></td><td>An answer that needs two documents</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Everything stays on your machine. The outfitter, its documents, products and places are invented, and every domain is <code>.example</code>.</p>
+  </section>
+
+  <section>
+    <h2>Scorecard</h2>
+    <p class="sec-note">30 questions × 3 modes · qwen3.5:4b · scored by code · about 10 minutes</p>
+    <div class="t-scroll">
+      <table>
+        <thead>
+          <tr><th>Mode</th><th>Correct</th><th>Declined</th><th>Invented</th><th>Avg prompt tokens</th><th>Avg time</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="name">No retrieval</td><td class="mono">0</td><td class="mono">28</td><td class="mono">2</td><td class="mono">164</td><td class="mono">1.6 s</td></tr>
+          <tr><td class="name">Pre-retrieved</td><td class="mono">20</td><td class="mono">7</td><td class="mono">2</td><td class="mono">1,229</td><td class="mono">5.1 s</td></tr>
+          <tr><td class="name">Search tool</td><td class="mono">21</td><td class="mono">6</td><td class="mono">1</td><td class="mono">2,091</td><td class="mono">8.2 s</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The remaining answers flagged that the 2025 and 2026 rate sheets disagree. The no-retrieval row includes a hand audit of two answers the frozen scorer misclassified. With every chunk it needed in the prompt, the model was right 40 times out of 43 and never invented. Retrieval alone: the default index found the answer's chunks in the top 4 for 21 of 27 answerable questions, and reranking raised that to 23, at 3.9 s a search. The stale rate sheet and the multi-hop questions beat every mode; the model never searched twice.</p>
+    <div class="note">
+      <span class="note-label">How to read it</span>
+      <p>One run. A second full run matched it on 89 of 90 answers and every rerank result; the one difference was the model choosing not to search. The defaults were chosen on these same 30 questions, so there's no held-out set.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it was built</h2>
+    <p class="sec-note">12 steps · from a written plan</p>
+    <p>Built in steps from a reviewed plan (<code>PLAN.md</code>, with its decisions in §13). Each step ended somewhere runnable and checkable in the terminal before the next began, and the UI came after retrieval, the answer modes and the scorer worked without it. Where a measurement contradicted the plan, the plan was corrected, not the measurement.</p>
+
+    <ol class="phases">
+      <li class="done"><span class="ph-name">Verify the facts the plan depends on</span> <span class="ph-steps">step 0</span></li>
+      <li class="done"><span class="ph-name">Skeleton, then the corpus, reviewed before anything was measured</span> <span class="ph-steps">steps 1–2</span></li>
+      <li class="done"><span class="ph-name">Chunking, then the three indexes</span> <span class="ph-steps">steps 3–4</span></li>
+      <li class="done"><span class="ph-name">Search and the MCP tool server</span> <span class="ph-steps">step 5</span></li>
+      <li class="done"><span class="ph-name">The question set, then the retrieval scorecard and the defaults</span> <span class="ph-steps">steps 6–7</span></li>
+      <li class="done"><span class="ph-name">The three answer modes, then the answer scorecard and rerank</span> <span class="ph-steps">steps 8–9</span></li>
+      <li class="done"><span class="ph-name">The UI</span> <span class="ph-steps">step 10</span></li>
+      <li class="done"><span class="ph-name">Documentation and Pages, then the Document tab</span> <span class="ph-steps">step 11</span></li>
+    </ol>
+
+    <h3>Things that will trip you up</h3>
+    <ul class="plain">
+      <li><strong>Ollama silently truncates embeddings.</strong> By default <code>/api/embed</code> cuts an over-long input and returns a vector of what fit. The embedder sends <code>truncate: false</code>.</li>
+      <li><strong>FTS5 throws on raw text.</strong> <code>MATCH 'EP-14'</code> fails with "no such column: 14". Keyword search quotes every term first.</li>
+      <li><strong>A similarity score can't tell you the answer isn't there.</strong> A question the corpus can't answer still scored 0.748 against its best match, above several real answers.</li>
+      <li><strong>Hybrid search can bury vector search's best hit.</strong> A common word in the keyword query puts most of the corpus in both rankings, and fusion rewards that over a first place in one.</li>
+      <li><strong>qwen3.5:4b thinks by default.</strong> <code>think</code> is always sent explicitly; with it on, a one-sentence question can take minutes.</li>
+      <li><strong>Temperature 0 and a fixed seed are close to repeatable, not exactly.</strong> The decision whether to call the search tool is where a near-tie shows.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Conventions held through the build</h2>
+    <p class="sec-note">What the code enforces on itself</p>
+
+    <h3>Every file explains itself</h3>
+    <p>Each <code>.ts</code> file opens with a comment saying what it does, why it exists and what it teaches, and <code>npm run audit-comments</code> fails if one is missing.</p>
+
+    <h3>Fixed before a run, never tuned after</h3>
+    <p>The corpus was written and its traps listed before anything was measured. The rule for picking the default index was written into the code before the retrieval scorecard first ran. The scorer's phrase lists were frozen before any answer existed; when a hand audit found them wrong twice, the mistakes were recorded beside the scorecard rather than fixed after the fact.</p>
+
+    <h3>Security by construction</h3>
+    <ul class="plain">
+      <li><strong>No API key, ever,</strong> and no outbound calls except to the local Ollama server. Cloud models and a non-local Ollama address are refused by name.</li>
+      <li><strong>Both retrieval modes go through <code>search_docs</code>.</strong> There's no second search path.</li>
+      <li><strong>Every chunk that reaches a request is recorded with its span.</strong> A request with unrecorded context is a bug.</li>
+      <li><strong>Scoring is code, never a model.</strong></li>
+      <li><strong>Corpus text and model output are rendered as text</strong>, never as HTML.</li>
+      <li><strong>Every server binds 127.0.0.1 and checks Host and Origin.</strong> No authentication; not for a network.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Current state</h2>
+    <p class="sec-note">Verified 23 November 2026</p>
+
+    <ul class="status">
+      <li class="ok">typecheck passes — both halves</li>
+      <li class="ok">build passes</li>
+      <li class="ok">96 unit tests pass</li>
+      <li class="ok">audit-comments passes — 61 files</li>
+      <li class="ok">try-tools passes — 15 cases</li>
+      <li class="ok">eval --check passes — 30 questions</li>
+      <li class="ok">check-env passes</li>
+      <li class="ok">0 vulnerabilities</li>
+      <li>8,594 lines of TypeScript</li>
+      <li>4 tools · 25 documents · 30 questions · 3 modes</li>
+    </ul>
+
+    <div class="note">
+      <span class="note-label">What has been measured</span>
+      <p>The full scorecard has been run: the retrieval pass across 27 search configurations, the answer pass of 30 questions through all three modes, and the rerank pass, with qwen3.5:4b. <code>npm run eval</code> regenerates it on your own machine in about 10 minutes. llama3.2:3b is selectable in the UI but hasn't been scored. <strong>It is not production software</strong>: it has no authentication and is built to be read and watched.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>local-rag-lab v0.1.0</span>
+    <span>Node 24+ · TypeScript 7 · Express 5 · MCP 2.4 · Ollama</span>
+    <span>Local only · no API key</span>
+  </footer>
+
+</div>
 </body>
 </html>

@@ -123,5 +123,10 @@ rather than editing them.
 from `main`. It's a complete, self-contained HTML document: doctype,
 `<html lang>`, `<meta charset="utf-8">`. Without the doctype Pages renders
 in quirks mode; without the charset long dashes become mojibake.
+`docs/how-it-works.html` is the walkthrough linked from it, with the same
+stylesheet: Newsreader and IBM Plex, hairline rules, monospace labels, the
+facts strip, and this lab's deep-green accent (`--accent`). Keep both pages
+on that template. Code excerpts there are copied from the repo; when
+quoted code changes, update the excerpt in the same change.
 
 Commits: plain imperative, descriptive, no prefixes.
