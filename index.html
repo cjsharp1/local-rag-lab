@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local RAG Lab</title>
+<meta name="description" content="A local teaching lab for retrieval-augmented generation: one help assistant answering three ways (no retrieval, pre-retrieved chunks, a search tool the model calls), with every retrieved chunk, score and token visible, scored by code. Runs through Ollama. No API key, no hosted model.">
+<style>
+  /* A single reading column with data in aligned rows. Deep green is this
+     project's accent. Self-contained on purpose: inline CSS, no scripts,
+     no web fonts. Light and dark come from the same tokens. */
+  :root {
+    color-scheme: light;
+    --bg: #f8f8f5;
+    --surface: #ffffff;
+    --sunk: #efefea;
+    --fg: #1d1f1c;
+    --fg-dim: #575b54;
+    --rule: #dcdcd4;
+    --accent: #1f6b45;
+    --accent-soft: #dcefe3;
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #121211; --surface: #1a1a19; --sunk: #242422; --fg: #f0efec;
+      --fg-dim: #b5b4aa; --rule: #383835; --accent: #5cc48d; --accent-soft: #1d3527;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --sunk: #242422; --fg: #f0efec;
+    --fg-dim: #b5b4aa; --rule: #383835; --accent: #5cc48d; --accent-soft: #1d3527;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 var(--font-body); }
+  main { max-width: 880px; margin: 0 auto; padding: 40px 16px 80px; }
+  header h1 { font-size: 2.2rem; line-height: 1.15; margin: 0 0 10px; }
+  header p { font-size: 1.1rem; color: var(--fg-dim); margin: 0; }
+  h2 { font-size: 1.35rem; margin: 52px 0 6px; padding-top: 16px; border-top: 1px solid var(--rule); }
+  h3 { font-size: 1.05rem; margin: 26px 0 6px; }
+  .sec-note { font-family: var(--font-mono); font-size: 0.82rem; color: var(--fg-dim); margin: 0 0 12px; }
+  a { color: var(--accent); }
+  code { font-family: var(--font-mono); font-size: 0.88em; background: var(--sunk); padding: 1px 4px; border-radius: 4px; }
+  pre { background: var(--sunk); padding: 12px 14px; border-radius: 8px; overflow-x: auto; font: 0.85rem/1.5 var(--font-mono); }
+  pre code { background: none; padding: 0; }
+  figure { margin: 22px 0; }
+  figure img { width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 8px; display: block; }
+  figcaption { color: var(--fg-dim); font-size: 0.9rem; margin-top: 6px; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin: 18px 0; }
+  .facts div { background: var(--surface); padding: 12px 14px; }
+  .facts b { display: block; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+  .facts span { color: var(--fg-dim); font-size: 0.85rem; }
+  .t-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; margin: 10px 0; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { color: var(--fg-dim); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.mono { font-family: var(--font-mono); font-size: 0.85rem; white-space: nowrap; }
+  .note { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 18px 0; }
+  .note p { margin: 4px 0; }
+  ol.lessons li { margin-bottom: 8px; }
+  footer { margin-top: 56px; color: var(--fg-dim); font-size: 0.88rem; border-top: 1px solid var(--rule); padding-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Local RAG Lab</h1>
+  <p>One help assistant, three ways to ground its answers, and every retrieved chunk, score and token on screen. Runs entirely on your machine through Ollama. No API key, no hosted model.</p>
+</header>
+
+<section>
+  <h2>What it is</h2>
+  <p class="sec-note">The premise</p>
+  <p>Retrieval-augmented generation is usually taught as a box diagram: documents, embeddings, a vector database, a model. The diagram hides the part that matters to a developer: what actually lands in the model's request, and what it costs.</p>
+  <p>This lab answers customer questions for <strong>Paddle Section Supply</strong>, an invented canoe outfitter, from 25 of its documents, and shows the whole pipeline: the query that was embedded, every candidate chunk with every score, which chunks were sent and why the rest weren't, the full request with each chunk highlighted inside it, and the tokens and seconds each step took. Every answer can be grounded three ways:</p>
+  <div class="t-scroll"><table>
+    <tr><th>Mode</th><th>Who retrieves</th></tr>
+    <tr><td><strong>No retrieval</strong></td><td>Nobody. The model answers from what it knows, or declines.</td></tr>
+    <tr><td><strong>Pre-retrieved</strong> (classic RAG)</td><td>The app searches before the model runs and pastes the chunks into one request.</td></tr>
+    <tr><td><strong>Search tool</strong> (agentic RAG)</td><td>The model calls <code>search_docs</code> with a query it writes, and can search again.</td></tr>
+  </table></div>
+  <p>Both retrieval modes call the same tool, over MCP. The only difference between classic and agentic RAG is who makes the call, and the activity log shows which.</p>
+  <figure>
+    <img src="docs/img/compare.png" alt="The compare view for 'Can our pup come along on the trip?': a summary table of requests, searches, chunks, prompt tokens, window share, time, citations and outcome for each mode, above three columns of log rows and answers" width="822" height="801">
+    <figcaption>The compare view: one question through all three modes, side by side. In this run the model chose not to search, and all three declined. In the scorecard run it searched and answered correctly. Whether a 4B model searches is one of the things the lab measures.</figcaption>
+  </figure>
+  <p>For a section-by-section tour, with code from the repo and screenshots from real runs, see <a href="docs/how-it-works.html">How it works</a>.</p>
+</section>
+
+<section>
+  <h2>What it teaches</h2>
+  <p class="sec-note">Six lessons, each measured on the reader's machine rather than asserted</p>
+  <ol class="lessons">
+    <li><strong>RAG is prompt construction.</strong> The model doesn't know the documents; the app pasted text into the request, and the request view shows exactly where.</li>
+    <li><strong>Retrieval quality caps answer quality.</strong> With every chunk it needed in the prompt, the model was right 40 times out of 43 and never invented. Every invented answer from a retrieval mode came from a prompt missing part of the answer.</li>
+    <li><strong>The modes trade differently.</strong> Pre-retrieval pays for context on every question and gets one try. The search tool costs 1.7× the prompt tokens and depends on a small model choosing to search, and searching well.</li>
+    <li><strong>Context is a budget.</strong> Every chunk not sent is logged with its reason, and the lab catches Ollama silently dropping messages from an overfull window.</li>
+    <li><strong>Embeddings capture meaning, not identifiers</strong>, and hybrid search exists for that reason. On this small corpus vector search found the exact codes too; hybrid won on split-context questions instead, and buried a paraphrase.</li>
+    <li><strong>A similarity score can't tell you the answer isn't there.</strong> A question the corpus can't answer still scored 0.748 against its best match, above several real answers.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>What's in it</h2>
+  <p class="sec-note">Counted in the repo and the scorecard</p>
+  <div class="facts">
+    <div><b>25</b><span>documents, 26,586 words, with planted traps</span></div>
+    <div><b>30</b><span>questions in 8 categories, with gold spans</span></div>
+    <div><b>3</b><span>chunking strategies × 3 size presets</span></div>
+    <div><b>164</b><span>chunks in the default index</span></div>
+    <div><b>4</b><span>MCP tools on the tool server</span></div>
+    <div><b>96</b><span>unit tests</span></div>
+  </div>
+  <p>The corpus hides traps on purpose, listed in <code>corpus/README.md</code>: a 2025 rate sheet left beside the 2026 one with nothing marking it old; long sections whose answer paragraph never names its subject; long tables; exact codes; entry point codes mapped to names in one place only, so some answers need two documents; near-duplicates and decoys; and topics deliberately absent, so some questions have no answer.</p>
+</section>
+
+<section>
+  <h2>Tech stack</h2>
+  <p class="sec-note">Node · Express · Ollama · SQLite FTS5 · vanilla TypeScript · no frontend framework, no vector database</p>
+  <div class="t-scroll"><table>
+    <thead><tr><th>Piece</th><th>Version</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td>qwen3.5:4b</td><td class="mono">Q4_K_M</td><td>The chat model: answers, calls the search tool, reranks</td></tr>
+      <tr><td>nomic-embed-text</td><td class="mono">768 dims</td><td>Embeds chunks and queries, with its task prefixes</td></tr>
+      <tr><td>@modelcontextprotocol/server, /client, /node</td><td class="mono">2.4.0, 2.4.0, 2.1.2</td><td>The tool server over stdio (and HTTP for MCP Inspector), and the app's client</td></tr>
+      <tr><td>node:sqlite</td><td class="mono">SQLite 3.50.2</td><td>The index files, and FTS5 with BM25 for keyword search</td></tr>
+      <tr><td>express</td><td class="mono">5.3.0</td><td>The routes and the Server-Sent Events streams</td></tr>
+      <tr><td>zod</td><td class="mono">4.6.7</td><td>Tool inputs and outputs, request bodies</td></tr>
+    </tbody>
+  </table></div>
+  <p>Vector search is a loop over the chunks in plain TypeScript: 164 chunks take well under a millisecond, and nothing about it is hidden. The README says when a real vector database becomes worth it.</p>
+</section>
+
+<section>
+  <h2>Running it</h2>
+  <p class="sec-note">Node 24+, Ollama, about 3.6 GB of models</p>
+<pre><code>npm install && ollama pull qwen3.5:4b && ollama pull nomic-embed-text
+npm run index && npm run check-env
+npm run dev          # http://127.0.0.1:3400</code></pre>
+  <p><code>npm run compare -- "your question"</code> runs all three modes in the terminal, and <code>npm run eval</code> regenerates the scorecard in about 10 minutes.</p>
+</section>
+
+<section>
+  <h2>What it measured</h2>
+  <p class="sec-note">30 questions × 3 modes, qwen3.5:4b, default settings; scored by code</p>
+  <div class="t-scroll"><table>
+    <tr><th>Mode</th><th class="num">correct</th><th class="num">declined</th><th class="num">invented</th><th class="num">avg prompt tokens</th><th class="num">avg time</th></tr>
+    <tr><td>No retrieval</td><td class="num">0</td><td class="num">28</td><td class="num">2</td><td class="num">164</td><td class="num">1.6 s</td></tr>
+    <tr><td>Pre-retrieved</td><td class="num">20</td><td class="num">7</td><td class="num">2</td><td class="num">1,229</td><td class="num">5.1 s</td></tr>
+    <tr><td>Search tool</td><td class="num">21</td><td class="num">6</td><td class="num">1</td><td class="num">2,091</td><td class="num">8.2 s</td></tr>
+  </table></div>
+  <p>The remaining answers flagged that the 2025 and 2026 rate sheets disagree. The no-retrieval row includes a hand audit of two answers the frozen scorer misclassified. Retrieval alone: the default index found the answer's chunks in the top 4 for 21 of 27 answerable questions, and reranking with the chat model raised that to 23, at 3.9 seconds a search.</p>
+  <div class="note"><p><strong>Read these as one run.</strong> A second full run matched it on 89 of 90 answers and on every rerank result; the one difference was the model choosing not to search. And the defaults were chosen on these same 30 questions, so there's no held-out set.</p></div>
+</section>
+
+<section>
+  <h2>How it was built</h2>
+  <p class="sec-note">Eleven steps, each ending with typecheck, the comment audit and the tests passing, and one commit</p>
+  <p>Facts about the tools were verified on the machine before any code was written, and re-verified when Ollama updated mid-build. The corpus was written and reviewed before anything was measured, so its traps couldn't be tuned to a result. The rule for picking the default index was written into the code before the retrieval scorecard first ran. The answer scorer's phrase lists were frozen before any answer existed, and when a hand audit found them wrong twice, the mistakes were recorded rather than fixed after the fact. Where a measurement contradicted the plan (vector search finding exact codes, the model declining instead of inventing, a walkthrough that predicted the wrong outcome), the plan was corrected, not the measurement.</p>
+</section>
+
+<section>
+  <h2>Conventions held through the build</h2>
+  <ul>
+    <li>Every TypeScript file opens with a comment saying what it does, why it exists and what it teaches (60 files, checked by a script).</li>
+    <li>No API key, no outbound calls; cloud models refused by name.</li>
+    <li>Every server on 127.0.0.1, with Host and Origin checked.</li>
+    <li>Corpus text and model output rendered as text, never as HTML.</li>
+    <li>A number in the docs is measured or marked as an estimate; a heuristic is labeled as one.</li>
+  </ul>
+</section>
+
+<footer>
+  MIT licensed. Every name, place, product and domain in the corpus is invented.
+</footer>
+</main>
+</body>
+</html>

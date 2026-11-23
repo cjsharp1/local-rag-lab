@@ -5,14 +5,15 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–10 done.** The corpus is
-approved; the chunker, the indexes, the MCP search tools, the question
-set, the three answer modes, the rerank stage, the full scorecard
-(`npm run eval`, docs/scorecard.md, results in §8) and the browser UI
-(`npm run dev`, http://127.0.0.1:3400) are built. Defaults:
-`heading+context`, `default` preset, hybrid mode, top-k 4, floor 0.50.
-Next: the docs (step 11). Sections below will be
-corrected wherever a build step proves them wrong.
+Status: **built: all eleven steps done (2026-11-23).** The corpus, the
+chunker, the indexes, the MCP search tools, the question set, the three
+answer modes, the rerank stage, the full scorecard (`npm run eval`,
+docs/scorecard.md, results in §8), the browser UI (`npm run dev`,
+http://127.0.0.1:3400) and the docs (README.md, docs/how-it-works.html,
+index.html, CLAUDE.md) are in place. Defaults: `heading+context`,
+`default` preset, hybrid mode, top-k 4, floor 0.50. This plan is now the
+build's record: every section was corrected where a step proved it
+wrong, and each correction says which step and why.
 
 Conventions in this document:
 
@@ -834,6 +835,16 @@ What it says, against the lessons in §1:
 **Rerank pass:** hit@4 21 → **23** of 27, two gained (paraphrase-5 and
 stale-1, which moved the 2026 rate row into the top 4), none lost, no
 unreadable replies; **3.9 s per search** added.
+
+### Repeatability (step 11)
+
+A second run of the answer and rerank passes, same settings, matched the
+scorecard on **89 of 90 answers** and every rerank result. The one change:
+search-tool mode on the pup question went from a search and a correct
+answer to no search and a decline, and stayed that way on five more
+runs, with an identical request. Temperature 0 and a fixed seed make runs
+close to repeatable, not exactly (docs/verified-facts.md). The scorecard
+stays the first run; the docs say how much a rerun moved.
 
 ### Scorer audit (step 9, by hand)
 

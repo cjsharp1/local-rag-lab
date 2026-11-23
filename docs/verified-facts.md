@@ -17,9 +17,9 @@ GPU (4 GB VRAM). Ollama 0.40.16.
 
 | Package | Version | Status |
 |---|---|---|
-| `@modelcontextprotocol/server` | 2.4.0 | confirmed, same as the other labs |
-| `@modelcontextprotocol/client` | 2.4.0 | confirmed, same as the other labs |
-| `@modelcontextprotocol/node` | 2.1.2 | confirmed, same as the other labs |
+| `@modelcontextprotocol/server` | 2.4.0 | confirmed |
+| `@modelcontextprotocol/client` | 2.4.0 | confirmed |
+| `@modelcontextprotocol/node` | 2.1.2 | confirmed |
 | `express` | 5.3.0 | confirmed |
 | `zod` | 4.6.7 | confirmed |
 | `dotenv` | 18.0.10 | confirmed |
@@ -28,8 +28,8 @@ GPU (4 GB VRAM). Ollama 0.40.16.
 | `@types/node` | 24.19.2 (the 24 line; latest is 26.6.6) | confirmed. Pin `^24` to match the Node target, not the latest major |
 | `@types/express` | 5.0.6 | confirmed |
 
-The MCP SDK hasn't changed since the other labs were built, so their
-MCP patterns carry over unchanged.
+The MCP SDK is the 2.x line, whose stdio and Streamable HTTP server
+and client APIs this lab uses throughout.
 
 ---
 
@@ -215,6 +215,28 @@ the answer pass, the facts the lab depends on were re-run:
 | Answers (30 questions × 3 modes, qwen3.5:4b) | **7.5 min** | 20–30 min | **changed**: prompts are small (1,229 tokens average pre-retrieved) |
 | Rerank (27 questions) | 1.8 min, 3.9 s per rerank request | 5–10 min | **changed** |
 | All passes | 9.8 min | — | measured |
+
+### Run-to-run repeatability (step 11)
+
+Every chat request sends `temperature: 0` and `seed: 1`. Whether that
+makes a run repeatable was checked by running the answer and rerank
+passes a second time (`npm run eval -- --limit 30`, same settings, same
+Ollama 0.40.17, the day after the scorecard):
+
+| | First run (the scorecard) | Second run |
+|---|---|---|
+| Answers with the same outcome | — | **89 of 90** |
+| Rerank hit@4, before → after | 21 → 23 | 21 → 23, every question the same |
+
+The one difference: search-tool mode on "Can our pup come along on the
+trip?" searched and answered correctly the first time, and answered
+without searching (declined) the second. Five further `npm run ask` runs
+of it all answered without searching. The request was identical (556
+prompt tokens, the same tool definition). **changed**: fixed sampling
+makes runs close to repeatable, not exactly. The likeliest cause is
+Ollama reusing cached prompt computation, where a near-tie (here, call
+the tool or answer) can tip either way; that's an inference, not
+something measured here.
 
 ### qwen3.5:4b behavior seen at step 8
 

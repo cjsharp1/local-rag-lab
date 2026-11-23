@@ -50,9 +50,10 @@ export interface TurnRequest {
 /**
  * Below this share of the estimated message tokens, Ollama dropped
  * messages. Generous because the estimate is rough, and a real drop
- * removes whole messages, so it's never subtle. (The data lab's detector,
- * which compares against the message text only: chat templates move tool
- * definitions around, so they're left out of the estimate.)
+ * removes whole messages, so it's never subtle. It compares against the
+ * message text only, never the tool definitions: chat templates move those
+ * around (llama3.2:3b's drops them once a tool result is the last
+ * message), so a prompt can shrink legitimately and still have lost nothing.
  */
 const DROP_RATIO = 0.6;
 

@@ -29,7 +29,8 @@ export function isLocalUrl(raw: string): boolean {
 /**
  * Whether a model runs on ollama.com rather than this machine: a name
  * ending in ":cloud" or "-cloud", or a /api/tags entry with a remote_*
- * field set. The same rule the other local labs enforce.
+ * field set. A remote_* field couldn't be observed on a machine with
+ * Ollama's cloud features off, so the check errs toward refusing.
  */
 export function isRemoteModel(name: string, entry?: Record<string, unknown>): boolean {
   if (/[:-]cloud$/i.test(name)) return true;

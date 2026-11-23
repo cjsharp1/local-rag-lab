@@ -72,8 +72,9 @@ export interface ChatRequest {
   tools?: OllamaTool[];
   /**
    * A JSON Schema the reply must match (structured output). Used only by
-   * the reranker, in a request with no tools: the data lab measured that
-   * `format` alongside `tools` stops tool calling entirely.
+   * the reranker, in a request with no tools: Ollama stops calling tools
+   * when `format` is sent alongside `tools`, so buildRequest() refuses the
+   * combination outright.
    */
   format?: Record<string, unknown>;
   think: boolean;
