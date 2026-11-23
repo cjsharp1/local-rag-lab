@@ -171,6 +171,46 @@ engineered away; whether keyword search earns its place is for the step
 | No gold chunk falls below the 0.50 floor | In all 27 configurations, every hop's best gold chunk scores at or above 0.50 | **confirmed, run** |
 | Keyword search earns its place on exact terms | Under `heading+context` / default: keyword 5/5, vector 4/5 (vector missed EP-31, ranking it #9). Keyword also finds all 3 split-context answers (vector 2/3). On paraphrase questions keyword gets 1/5 | **confirmed** for exact terms and split context; the cost on paraphrases is in PLAN §4.2 |
 
+### The token estimate against qwen's count (step 8)
+
+Every model request logs the chars ÷ 4 estimate (messages, plus tool
+definitions as JSON, plus 8 tokens per message) next to Ollama's real
+`prompt_eval_count`. From the first `npm run compare` and `npm run ask`
+runs, qwen3.5:4b:
+
+| Request | Estimated | Real | Error |
+|---|---|---|---|
+| no-retrieval | 180 | 165 | +9% |
+| pre-retrieved, 4 chunks | 1,023 | 964 | +6% |
+| pre-retrieved, 4 chunks (multi-hop question) | 1,098 | 1,266 | −13% |
+| search-tool, first request (tool offered, no chunks) | 375 | 526 | **−29%** |
+| search-tool, after one search | 1,240 | 1,370 | −9% |
+| search-tool, after one search (multi-hop question) | 1,368 | 1,806 | **−24%** |
+
+**changed**: without tools the estimate is within about ±15%; with the
+search_docs tool offered it **underestimates by roughly 150–450
+tokens**. The chat template renders a tool definition into more tokens
+than its JSON size suggests. It stays a labeled heuristic: the 1,024-token
+reply reserve covers an error this size with room left, and the drop
+detector watches for anything larger. Nothing is corrected to fit these
+numbers.
+
+### qwen3.5:4b behavior seen at step 8
+
+- **It declines when it has no documents.** With no retrieval, asked the
+  late-fee question and a multi-hop one, it answered "The documents do
+  not say." both times rather than inventing. PLAN §1 expected invention;
+  the step 9 answer pass measures how often.
+- **It mangles long chunk labels.** It cited
+  `[rental-agreement#late-returns-and-the-late-returns-and-the-late-fee]`
+  for `[rental-agreement#late-returns-and-the-late-fee]`. The citation
+  check flags it as not sent.
+- **It rewrites queries, sometimes well.** "Can our pup come along on the
+  trip?" became a search for "pets dogs allowed on trips", which found
+  the answer. On the multi-hop EP-14 question it searched once, got the
+  Heron Chain Loop's portage table without the EP-14 mapping, and
+  declined instead of searching again.
+
 ### FTS5 query building (step 5)
 
 `keyword.ts` turns raw text into a safe FTS5 query. Checked in the tests
@@ -245,5 +285,4 @@ with thinking off.
 
 | Fact | Step |
 |---|---|
-| Chars ÷ 4 against qwen's real `prompt_eval_count` | 8 |
 | Answer-pass and rerank-pass run times | 9 |

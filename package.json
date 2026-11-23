@@ -18,7 +18,6 @@
     "index": "tsx scripts/index.ts",
     "tool-server:http": "tsx tool-server/http.ts",
     "try-tools": "tsx scripts/try-tools.ts",
-    "try-model": "tsx scripts/try-model.ts",
     "ask": "tsx scripts/ask.ts",
     "compare": "tsx scripts/compare.ts",
     "eval": "tsx scripts/eval.ts"

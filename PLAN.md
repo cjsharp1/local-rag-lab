@@ -5,9 +5,10 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–7 done.** The corpus is
+Status: **all decisions made (§13); steps 0–8 done.** The corpus is
 approved; the chunker, the indexes, the MCP search tools, the question
-set and the retrieval scorecard are built. Defaults: `heading+context`,
+set, the retrieval scorecard and the three answer modes are built
+(`npm run ask`, `npm run compare`). Defaults: `heading+context`,
 `default` preset, hybrid mode, top-k 4, floor 0.50. Sections below will be
 corrected wherever a build step proves them wrong.
 
@@ -206,18 +207,20 @@ local-rag-lab/
 │   └── http.ts
 ├── server/
 │   ├── index.ts               routes, SSE, Host/Origin guard
-│   ├── logger.ts
-│   ├── model/ollama.ts
-│   ├── mcp/client.ts
+│   ├── logger.ts              log rows to a sink; one method per level, `retrieval` included
+│   ├── log-format.ts          a log row as a terminal line
+│   ├── turn.ts                runTurn(): one question through one mode; the routes, scripts and scorecard all call it
+│   ├── model/ollama.ts        chat over fetch, streamed and joined; think, num_ctx, num_predict, temperature 0
+│   ├── mcp/client.ts          spawns the tool server, calls search_docs
 │   ├── modes/
+│   │   ├── common.ts          Turn: model calls with the drop detector, search + selection logging, citations
 │   │   ├── none.ts            question → model
 │   │   ├── pre-retrieved.ts   question → search_docs (actor: app) → assemble → model
-│   │   └── search-tool.ts     question → loop with search_docs offered (actor: model)
+│   │   └── search-tool.ts     the tool loop, with search_docs offered (actor: model)
 │   ├── context/
-│   │   ├── budget.ts          fits chunks into the token budget, logs what it drops
-│   │   ├── assemble.ts        builds the prompt, marks the chunk spans for the UI
-│   │   └── rerank.ts          optional rerank stage (§4.4)
-│   ├── agent/loop.ts          the tool loop, adapted from the data lab
+│   │   ├── budget.ts          fits chunks into the token budget, decides what's dropped and why
+│   │   ├── assemble.ts        builds the prompt, marks the chunk spans for the UI, reads citations
+│   │   └── rerank.ts          optional rerank stage (§4.4), step 9
 │   ├── questions.ts           loads questions/*.json and checks them against the corpus
 │   └── system-prompt.ts
 ├── shared/
@@ -238,7 +241,6 @@ local-rag-lab/
 │   ├── chunk-report.ts        chunk counts and the longest and shortest chunks per strategy
 │   ├── index.ts               chunk + embed + store → data/index-<strategy>.db (all three by default)
 │   ├── try-tools.ts
-│   ├── try-model.ts
 │   ├── ask.ts                 one question, one mode, every row in the terminal
 │   ├── compare.ts             one question, all three modes, summary table
 │   └── eval.ts                the scorecard (§8)
@@ -411,6 +413,19 @@ budget. Every chunk not sent is logged with one of: `below-floor`,
 that a reader can run past the budget and, with the budget check turned
 off (a toggle in the retrieval panel, §7), past the window itself, where
 the drop detector from the data lab fires.
+
+Changed at step 8:
+
+- **Past-top-k is one row**, listing every chunk in its detail. A
+  hybrid search returns 130–160 candidates (§4.2), so a row per chunk
+  would bury the log. Over-budget chunks still get a row each, since
+  there are only ever a few. Below-floor arrives as a summary (§4.2).
+- **Once a chunk doesn't fit, the rest of the top k are over-budget**,
+  even if a later one is smaller. What's sent is always a prefix of the
+  ranking.
+- **Reaching the drop detector needs the `large` preset** (16 × ~600
+  tokens) or a smaller `NUM_CTX`: at the default preset, 16 chunks are
+  about 3,500 tokens and fit the 8,192-token window with room to spare.
 
 **The budget is a heuristic.** Before the request, token counts are
 estimated as characters ÷ 4; the real count (`prompt_eval_count`) only
@@ -644,6 +659,21 @@ searches "late fee," then a second request, about the same answer, two
 requests. Then switch the index to `fixed` chunking and ask again: the
 fee table splits, and the pre-retrieved answer gets the number wrong
 while citing a chunk that looks right.
+
+*Measured at step 8 (`npm run compare`, qwen3.5:4b, defaults):*
+
+| Mode | Requests | Prompt tokens (real / est.) | Answer |
+|---|---|---|---|
+| none | 1 | 165 / ~180 | "The documents do not say." It **declined**, not invented |
+| pre-retrieved | 1 | 964 / ~1,023 | $35 per boat per day, correct, but citing a **mangled label** the citation check flagged |
+| search-tool | 2 | 1,896 / ~1,615 | Searched "fee late return canoe"; $35, correct, valid citation |
+
+*The walkthrough above predicted an invented fee for no-retrieval and a
+2,900-token request; qwen declines when told to answer only from
+documents, and the request is under 1,000 tokens because the default
+chunks are smaller than planned. The step 10 walkthrough is rewritten
+from the step 9 scorecard, not from these predictions. The `fixed` claim
+is for step 9 to test.*
 
 ### 7.1 GitHub Pages overview (`index.html`)
 

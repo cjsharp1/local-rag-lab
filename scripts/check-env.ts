@@ -31,9 +31,9 @@
  *      exactly the failure worth a loud line.
  *
  * The local-only rules (no remote Ollama, no cloud models) come from
- * shared/local-only.ts, the same file the embedder uses. This script
- * still lists models with its own fetch calls; the lab's chat client
- * arrives at build step 8.
+ * shared/local-only.ts, the same file the embedder and the chat client
+ * use. Listing installed models is only needed here, so this script does
+ * it with its own fetch calls; server/model/ollama.ts covers chat alone.
  *
  * ---------------------------------------------------------------------------
  * Why settings are checked as well as read

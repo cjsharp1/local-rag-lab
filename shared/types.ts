@@ -221,6 +221,40 @@ export interface ChunkSpan {
   end: number;
 }
 
+/**
+ * What one answer cost and produced: the summary row of the compare view,
+ * and one line of the answer scorecard.
+ */
+export interface TurnSummary {
+  mode: AnswerMode;
+  model: string;
+  question: string;
+  answer: string;
+  /** Model requests made. */
+  requests: number;
+  /** search_docs calls made, by the app or the model. */
+  searches: number;
+  /** The queries searched, in order. */
+  queries: string[];
+  /** Prompt tokens Ollama counted, summed over requests. */
+  promptTokens: number;
+  /** Prompt tokens estimated (chars ÷ 4) before sending, summed. */
+  estimatedPromptTokens: number;
+  /** Reply tokens, summed. */
+  responseTokens: number;
+  /** The largest single request, as a share of the window, 0–1. */
+  peakWindowShare: number;
+  /** Chunks placed into requests (a chunk sent twice counts twice). */
+  chunksSent: number;
+  /** Labels cited in the answer that were, and weren't, in a request. */
+  citations: { valid: string[]; invalid: string[] };
+  /** Ollama reported fewer prompt tokens than the messages hold: something was dropped. */
+  droppedMessages: boolean;
+  timings: StageTimings;
+  /** Set when the turn ended without an answer. */
+  error?: string;
+}
+
 /** Time spent per stage of one turn, in milliseconds. */
 export interface StageTimings {
   /** Ollama's load_duration for the embeddings model; non-zero means a swap. */
