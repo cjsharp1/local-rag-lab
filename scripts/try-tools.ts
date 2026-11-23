@@ -58,15 +58,22 @@ type Check = () => Promise<string | null>;
 const expect = (ok: boolean, detail: string): string | null => (ok ? null : detail);
 
 const CASES: Array<[string, Check]> = [
-  ["the server offers exactly search_docs, get_document and list_documents", async () => {
+  ["the server offers exactly search_docs, get_document, list_documents and index_map", async () => {
     const names = (await client.listTools()).tools.map((t) => t.name).sort().join(",");
-    return expect(names === "get_document,list_documents,search_docs", names);
+    return expect(names === "get_document,index_map,list_documents,search_docs", names);
   }],
 
   ["list_documents lists 25 documents and three fresh indexes", async () => {
     const o = await call("list_documents");
     const d = o.data as { documents: unknown[]; indexes: Array<{ strategy: string; stale: boolean }> } | undefined;
     return expect(d?.documents.length === 25 && d.indexes.length === 3 && d.indexes.every((i) => !i.stale), o.text.slice(0, 300));
+  }],
+
+  ["index_map returns a position for every chunk of the index asked for", async () => {
+    const o = await call("index_map", { strategy: "fixed" });
+    const d = o.data as { strategy: string; chunks: Array<{ x: number; y: number }>; variance: number[] } | undefined;
+    return expect(d?.strategy === "fixed" && d.chunks.length === 148 && d.chunks.every((c) => Number.isFinite(c.x) && Number.isFinite(c.y)) && (d.variance[0] ?? 0) > 0,
+      o.text.slice(0, 200));
   }],
 
   ["get_document reads a document by id, or by a whole chunk label", async () => {
@@ -150,7 +157,7 @@ async function main(): Promise<void> {
   // The tool server's stderr, shown only when it says something unexpected.
   (transport.stderr as Readable | null)?.on("data", (chunk: Buffer) => {
     for (const line of chunk.toString().split(/\r?\n/)) {
-      if (line.trim() && !/ExperimentalWarning|trace-warnings|serving 3 tools/.test(line)) console.error(`      [tool server] ${line.trim()}`);
+      if (line.trim() && !/ExperimentalWarning|trace-warnings|serving 4 tools/.test(line)) console.error(`      [tool server] ${line.trim()}`);
     }
   });
   await client.connect(transport);

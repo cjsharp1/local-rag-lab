@@ -33,7 +33,7 @@ const handle = serveStdio(createServer, {
   },
 });
 
-console.error(`[${SERVER_NAME} ${SERVER_VERSION}] serving 3 tools over stdio. Indexes: ${report.join("; ")}.`);
+console.error(`[${SERVER_NAME} ${SERVER_VERSION}] serving 4 tools over stdio. Indexes: ${report.join("; ")}.`);
 
 // Close the transport cleanly when the parent stops us, so a response in
 // flight isn't cut off halfway.

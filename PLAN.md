@@ -5,12 +5,13 @@ to the requests a model receives: the same question answered three ways,
 side by side in the activity log, with every retrieved chunk, score and
 token visible.
 
-Status: **all decisions made (§13); steps 0–9 done.** The corpus is
+Status: **all decisions made (§13); steps 0–10 done.** The corpus is
 approved; the chunker, the indexes, the MCP search tools, the question
-set, the three answer modes, the rerank stage and the full scorecard
-(`npm run eval`, docs/scorecard.md, results in §8) are built. Defaults:
+set, the three answer modes, the rerank stage, the full scorecard
+(`npm run eval`, docs/scorecard.md, results in §8) and the browser UI
+(`npm run dev`, http://127.0.0.1:3400) are built. Defaults:
 `heading+context`, `default` preset, hybrid mode, top-k 4, floor 0.50.
-Next: the UI (step 10). Sections below will be
+Next: the docs (step 11). Sections below will be
 corrected wherever a build step proves them wrong.
 
 Conventions in this document:
@@ -231,11 +232,15 @@ local-rag-lab/
 │   ├── scoring.ts             span and fact matching, the frozen phrase lists, answer outcomes
 │   └── search-settings.ts     search defaults (mode, top-k, floor) and RRF's k
 ├── public/
-│   ├── app.ts, chat.ts, log.ts, state.ts, dom.ts
-│   ├── compare.ts             the three-column view
-│   ├── map.ts                 the embedding map (canvas)
-│   ├── request-view.ts        full request with chunk spans highlighted
-│   └── styles.css
+│   ├── index.html, styles.css
+│   ├── app.ts                 wiring: meta, settings, Ask, Compare, rebuild, tabs
+│   ├── api.ts                 JSON GETs, and SSE read from a POST response
+│   ├── dom.ts                 el()/append(): text nodes only, never innerHTML
+│   ├── log.ts                 the activity log; "View request" on model requests
+│   ├── retrieval.ts           the panel's settings and the candidate table (also the map's table view)
+│   ├── compare.ts             the three-column view and its summary table
+│   ├── map.ts                 the embedding map (canvas), legend, hover labels
+│   └── request-view.ts        full request with chunk spans highlighted
 ├── scripts/
 │   ├── audit-comments.ts      copied first, at step 1
 │   ├── check-env.ts
@@ -617,14 +622,29 @@ turn-complete row.
 ### 6.4 Routes
 
 `POST /api/ask` (SSE), `POST /api/compare` (SSE, three runs in sequence,
-tagged by mode), `GET /api/index` (loaded strategy, settings, counts, map
-coordinates, corpus-hash status), `POST /api/index/select` (switch to
-another built strategy), `POST /api/index/rebuild` (SSE progress),
+tagged by mode), `GET /api/meta` (models, defaults, presets, index status
+with staleness, documents, the question set), `GET /api/map?strategy=`
+(the embedding map's points), `POST /api/index/rebuild` (SSE progress),
 `GET /api/documents/:id`.
 
-At startup the app compares each index file's stored corpus hash with a
-hash of `corpus/`. A mismatch is a `warn` row in the log and a banner in
-the UI, naming the stale index and offering the rebuild.
+Changed at step 10:
+
+- **No `/api/index/select`.** The tool server loads all three indexes
+  (step 5), so the strategy travels with each request instead of being
+  switched on the server.
+- **A fourth MCP tool, `index_map`**, gives the map its points through the
+  tool server, since the app never opens an index file. The model is
+  never offered it.
+- **Rebuild runs `npm run index` as a child process** and streams its
+  output. It stops the tool server first, because the tool server holds
+  every index file open and Windows won't let the build rename a new file
+  over an open one; questions are refused (409) until the build ends, and
+  the next one starts a fresh tool server with the new index.
+
+At startup the tool server compares each index file's stored corpus hash
+with a hash of `corpus/`; a mismatch is a banner in the UI (from
+`GET /api/meta`) naming the stale index, and `indexStale: true` on every
+search result from it, which the log shows as a `warn` row.
 
 ---
 
@@ -652,29 +672,52 @@ version of the lab is one question in this view.
 
 ### How a reader follows one question
 
-Pick "What's the fee if we bring the canoe back a day late?" and press
-Compare. No-retrieval: one 400-token request and an invented fee.
-Pre-retrieved: a search row, four chunks kept, a 2,900-token request with
-the fee table highlighted, and the right fee. Search tool: the model
-searches "late fee," then a second request, about the same answer, two
-requests. Then switch the index to `fixed` chunking and ask again: the
-fee table splits, and the pre-retrieved answer gets the number wrong
-while citing a chunk that looks right.
+*Rewritten at step 10 from the step 9 scorecard and the browser. Every
+outcome below is measured (qwen3.5:4b, defaults); the draft's version
+predicted an invented fee for the plain late-fee question and a `fixed`
+index that broke it, and neither happened (no-retrieval declined; under
+`fixed` the answer was still $35, citing `[rental-agreement#2]`).*
 
-*Measured at step 8 (`npm run compare`, qwen3.5:4b, defaults):*
+Pick each of these from "Question from the set" and press **Compare
+all three**:
 
-| Mode | Requests | Prompt tokens (real / est.) | Answer |
-|---|---|---|---|
-| none | 1 | 165 / ~180 | "The documents do not say." It **declined**, not invented |
-| pre-retrieved | 1 | 964 / ~1,023 | $35 per boat per day, correct, but citing a **mangled label** the citation check flagged |
-| search-tool | 2 | 1,896 / ~1,615 | Searched "fee late return canoe"; $35, correct, valid citation |
+1. **"We might not make it back until dinnertime on our final
+   evening. Will that cost us?"** No retrieval: *"a late fee of $15 per
+   person [rental-agreement#late-returns]"*, a fluent, invented answer
+   citing a chunk that was never sent; the log flags the citation.
+   Pre-retrieved: a search row with `app` as the actor, four chunks
+   kept, about 1,000 prompt tokens, and **$35 per boat**. Click "View
+   request" to see the fee paragraph highlighted inside the prompt.
+   (Lessons 1 and 2.)
+2. **"Can our pup come along on the trip?"** Pre-retrieved declines:
+   hybrid search buried the dog answer at #13, past top-4 (the candidate
+   table shows it). Search tool: the model searched for "pup dog pet
+   allowed on trip", found it, and answered with the leash rule. Two
+   requests and 1.7× the tokens for the right answer. (Lesson 3.)
+3. **"How much does it cost to rent a Northline 17 Kevlar canoe for one
+   day?"** Pre-retrieved answers **$58**, from the 2025 rate sheet,
+   citing it. Search tool gives $58 (2025) and $64 (2026). Nothing in
+   the corpus says 2025 is obsolete, and nothing in the retrieval knows.
+4. **"Do day-use permits cost anything?"** Switch the index to `heading`
+   and ask in pre-retrieved mode: the answer chunk says only "They cost
+   nothing" and ranks #15. Switch to `heading+context`, where the heading
+   path is embedded with it: it ranks #3, and the answer is right.
+5. **"What's the longest portage on the route that starts at EP-14?"**
+   All three decline. Search tool searched once, got the Heron Chain
+   Loop's portages without learning that EP-14 is Heron Lake, and didn't
+   search again. A 4B model's agentic RAG, measured.
 
-*The walkthrough above predicted an invented fee for no-retrieval and a
-2,900-token request; qwen declines when told to answer only from
-documents, and the request is under 1,000 tokens because the default
-chunks are smaller than planned. The step 10 walkthrough is rewritten
-from the step 9 scorecard, not from these predictions. The `fixed` claim
-is for step 9 to test.*
+The map tab shows each question land among the chunks, with lines to
+the four that were sent; the caption gives the share of variance the
+two axes keep (about 21%), so nobody mistakes it for the real distances.
+
+**Verified in a browser at step 10** (headless Edge over the DevTools
+protocol, light and dark, 1440 px and 390 px wide): the page loads with
+the defaults; Ask streams the log row by row; "View request" shows every
+chunk highlighted; the map draws, with the query and lines to the sent
+chunks; Compare fills three columns and the summary table; rebuilding an
+index through the panel works; no console errors; no sideways scrolling
+at phone width.
 
 ### 7.1 GitHub Pages overview (`index.html`)
 

@@ -1,5 +1,5 @@
 /**
- * mcp-server.ts — builds the MCP server that offers the lab's three tools.
+ * mcp-server.ts — builds the MCP server that offers the lab's four tools.
  *
  * MCP (the Model Context Protocol) is how the app reaches the tools: it
  * starts this server as a child process and talks to it over stdio
@@ -31,7 +31,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 
 import { EmbedError } from "./embed.js";
-import { getDocument, listDocuments } from "./tools/documents.js";
+import { getDocument, indexMap, listDocuments } from "./tools/documents.js";
 import { searchDocs } from "./tools/search-docs.js";
 import { ToolError, type ToolDefinition } from "./tools/types.js";
 
@@ -45,7 +45,7 @@ export const SERVER_VERSION = "0.1.0";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see above
 type AnyTool = ToolDefinition<any, any>;
 
-export const TOOLS: readonly AnyTool[] = [searchDocs, getDocument, listDocuments];
+export const TOOLS: readonly AnyTool[] = [searchDocs, getDocument, listDocuments, indexMap];
 
 function register(server: McpServer, tool: AnyTool): void {
   server.registerTool(

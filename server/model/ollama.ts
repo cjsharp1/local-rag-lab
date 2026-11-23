@@ -221,6 +221,34 @@ export async function chat(request: ChatRequest): Promise<ChatResponse> {
   return { ...last, model: last.model ?? request.model, message, done: last.done ?? false };
 }
 
+/** A locally installed chat model, as the UI's model picker needs it. */
+export interface LocalModel {
+  name: string;
+  supportsTools: boolean;
+  /** Only these may be sent think: true; others answer HTTP 400. */
+  supportsThinking: boolean;
+}
+
+/** Installed chat models that can call tools, local ones only (cloud models are left out). */
+export async function listChatModels(): Promise<LocalModel[]> {
+  const { url } = ollamaConfig();
+  let response: Response;
+  try {
+    response = await fetch(`${url}/api/tags`);
+  } catch {
+    throw new OllamaUnreachableError(url);
+  }
+  if (!response.ok) throw new OllamaHttpError(response.status, await response.text());
+  const body = (await response.json()) as { models?: Array<Record<string, unknown>> };
+  return (body.models ?? [])
+    .filter((m) => !isRemoteModel(String(m.name ?? ""), m))
+    .map((m) => {
+      const capabilities = Array.isArray(m.capabilities) ? m.capabilities.map(String) : [];
+      return { name: String(m.name ?? ""), supportsTools: capabilities.includes("tools"), supportsThinking: capabilities.includes("thinking") };
+    })
+    .filter((m) => m.supportsTools);
+}
+
 // --- Reading a response -------------------------------------------------------------
 
 /** Generation speed: the local stand-in for a cost column. Null if not reported. */

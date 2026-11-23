@@ -1,12 +1,14 @@
 /**
- * documents.ts — the get_document and list_documents tools.
+ * documents.ts — the get_document, list_documents and index_map tools.
  *
  * search_docs returns chunks: pieces of documents, cut where the chunker
  * cut them. Sometimes the piece isn't enough (the answer runs past the
  * chunk's end, or a table's header is in another chunk) and a reader, or
- * a model in search-tool mode, wants the whole document. These two tools
- * provide that:
+ * a model in search-tool mode, wants the whole document. The two document
+ * tools provide that, and a third gives the UI its map:
  *
+ *   index_map       every chunk's position on the 2D embedding map, for
+ *                   the UI (the model is never offered it).
  *   list_documents  every document's id, path and title, and which
  *                   indexes are loaded with how many chunks each.
  *   get_document    one document's full text, by id.
@@ -67,6 +69,54 @@ export const listDocuments: ToolDefinition<typeof listInput, DocumentList> = {
       ...data.indexes.map((i) => `  ${i.strategy.padEnd(16)} ${i.chunks} chunks, preset ${i.preset}${i.stale ? "  (STALE: run npm run index)" : ""}`),
     ].join("\n");
     return { data, text };
+  },
+};
+
+// --- index_map ----------------------------------------------------------------------
+
+interface IndexMap {
+  strategy: ChunkStrategy;
+  preset: string;
+  /** Share of the total variance each map axis keeps, 0–1. */
+  variance: [number, number];
+  chunks: Array<{ chunkId: string; docId: string; x: number; y: number }>;
+}
+
+const mapInput = z.object({
+  strategy: z.enum(["fixed", "heading", "heading+context"]).optional().describe(`Which index (default ${DEFAULT_STRATEGY}).`),
+});
+
+/**
+ * The embedding map's points (PLAN §4.5): every chunk's 2D position, for
+ * the UI to draw. The app uses this; the model is never offered it
+ * (search-tool mode offers search_docs alone), so it costs no prompt space.
+ */
+export const indexMap: ToolDefinition<typeof mapInput, IndexMap> = {
+  name: "index_map",
+  title: "Chunk positions on the embedding map",
+  description: "Every chunk's position on the 2D embedding map of one index, and the share of variance the map keeps. For drawing the map, not for answering questions.",
+  inputSchema: mapInput,
+  outputSchema: z.object({
+    strategy: z.enum(["fixed", "heading", "heading+context"]),
+    preset: z.string(),
+    variance: z.tuple([z.number(), z.number()]),
+    chunks: z.array(z.object({ chunkId: z.string(), docId: z.string(), x: z.number(), y: z.number() })),
+  }),
+  async run({ strategy }) {
+    let index;
+    try {
+      index = getIndex(strategy ?? DEFAULT_STRATEGY);
+    } catch (error: unknown) {
+      if (error instanceof IndexMissingError) throw new ToolError(error.message);
+      throw error;
+    }
+    const data: IndexMap = {
+      strategy: index.settings.strategy,
+      preset: index.settings.preset,
+      variance: index.settings.mapVariance,
+      chunks: index.chunks.map((c) => ({ chunkId: c.id, docId: c.docId, x: c.map.x, y: c.map.y })),
+    };
+    return { data, text: `${data.chunks.length} chunks on the ${data.strategy} map; the axes keep ${(data.variance[0] * 100).toFixed(1)}% + ${(data.variance[1] * 100).toFixed(1)}% of the variance.` };
   },
 };
 

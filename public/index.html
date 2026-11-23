@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local RAG Lab</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Local RAG Lab</h1>
+      <p>Paddle Section Supply's help assistant, answered three ways. Everything runs on this machine.</p>
+    </div>
+    <div class="model">
+      <label>Chat model <select id="model"></select></label>
+      <label class="check" title="The model thinks before answering. Slow by design: in testing, a one-sentence question took minutes."><input type="checkbox" id="think"> Thinking (slow)</label>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main class="layout">
+    <section class="left">
+      <div class="card" id="chat">
+        <h2>Ask</h2>
+        <label class="field">Question from the set <select id="preset-question"><option value="">Type your own, or pick one…</option></select></label>
+        <textarea id="question" rows="3" placeholder="What's the fee if we bring the canoe back a day late?"></textarea>
+        <fieldset class="modes">
+          <legend>Answer mode</legend>
+          <label><input type="radio" name="mode" value="none"> No retrieval</label>
+          <label><input type="radio" name="mode" value="pre-retrieved" checked> Pre-retrieved</label>
+          <label><input type="radio" name="mode" value="search-tool"> Search tool</label>
+        </fieldset>
+        <div class="actions">
+          <button id="ask" class="primary">Ask</button>
+          <button id="compare" title="Run the question through all three modes, one after another">Compare all three</button>
+        </div>
+        <div id="answer" class="answer" hidden></div>
+      </div>
+
+      <div class="card" id="retrieval">
+        <h2>Retrieval</h2>
+        <div class="grid2">
+          <label class="field">Index (chunking) <select id="strategy">
+            <option value="fixed">fixed</option>
+            <option value="heading">heading</option>
+            <option value="heading+context">heading+context</option>
+          </select></label>
+          <label class="field">Search <select id="search-mode">
+            <option value="vector">vector</option>
+            <option value="keyword">keyword</option>
+            <option value="hybrid">hybrid</option>
+          </select></label>
+          <label class="field">Top-k <span class="inline"><input type="range" id="top-k" min="1" max="16"> <output id="top-k-value"></output></span></label>
+          <label class="field">Floor (vector similarity) <input type="number" id="floor" min="-1" max="1" step="0.01"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="rerank"> Rerank the top 8 with the chat model <span class="muted">(slow by design: a model request per search)</span></label>
+        <label class="check"><input type="checkbox" id="budget"> Budget check <span class="muted">(off: chunks can run past the window, and Ollama drops messages)</span></label>
+        <p id="index-info" class="muted small"></p>
+        <div class="rebuild">
+          <label class="field">Size preset <select id="preset"></select></label>
+          <button id="rebuild">Rebuild this index</button>
+        </div>
+        <pre id="rebuild-log" class="small" hidden></pre>
+        <h3>Candidates from the last search</h3>
+        <p class="muted small">Every chunk that passed the floor, in rank order. Kept rows are bold; the rest say why they weren't sent.</p>
+        <div class="table-wrap"><table id="candidates"><tbody><tr><td class="muted">No search yet.</td></tr></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="right card">
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="log" aria-selected="true">Activity log</button>
+        <button role="tab" data-tab="compare" aria-selected="false">Compare</button>
+        <button role="tab" data-tab="request" aria-selected="false">Request view</button>
+        <button role="tab" data-tab="map" aria-selected="false">Embedding map</button>
+      </nav>
+      <div class="tab" id="tab-log"><div id="log" class="log"><p class="muted">Ask a question, and every step shows up here as it happens.</p></div></div>
+      <div class="tab" id="tab-compare" hidden><div id="compare-view"><p class="muted">Press "Compare all three" to see the modes side by side.</p></div></div>
+      <div class="tab" id="tab-request" hidden><div id="request-view"><p class="muted">Click "View request" on a model request in the log to see exactly what the model received, with every retrieved chunk highlighted.</p></div></div>
+      <div class="tab" id="tab-map" hidden>
+        <div id="map-legend" class="legend"></div>
+        <div class="map-wrap"><canvas id="map" width="760" height="520" aria-label="Embedding map: each dot is a chunk, colored by document folder"></canvas><div id="map-tip" class="tip" hidden></div></div>
+        <p id="map-caption" class="muted small"></p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

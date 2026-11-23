@@ -332,6 +332,68 @@ export interface Question {
 export type AnswerOutcome = "correct" | "declined" | "conflict-flagged" | "invented";
 
 // ---------------------------------------------------------------------------
+// What crosses the wire between the server and the browser
+// ---------------------------------------------------------------------------
+
+/** POST /api/ask (and /api/compare, which ignores `mode`). */
+export interface AskBody {
+  question: string;
+  mode: AnswerMode;
+  model: string;
+  strategy: ChunkStrategy;
+  settings: SearchSettings;
+  think: boolean;
+}
+
+/**
+ * One Server-Sent Event from /api/ask, /api/compare or /api/index/rebuild.
+ *
+ *   log       a log row, as it happens
+ *   done      one mode finished; `outcome` is scored when the question is
+ *             from the question set
+ *   finished  the whole request finished (compare: all three modes)
+ *   progress  a line of index-build output
+ *   error     the request failed before or outside a turn
+ */
+export type StreamEvent =
+  | { type: "log"; event: LogEvent }
+  | { type: "done"; summary: TurnSummary; outcome?: AnswerOutcome; questionId?: string }
+  | { type: "finished" }
+  | { type: "progress"; line: string }
+  | { type: "error"; message: string };
+
+/** One index, as GET /api/meta reports it. */
+export interface IndexStatus {
+  strategy: ChunkStrategy;
+  preset: string;
+  chunks: number;
+  /** Built from a different corpus than the one on disk. */
+  stale: boolean;
+}
+
+/** GET /api/meta: everything the page needs to draw itself. */
+export interface MetaResponse {
+  models: Array<{ name: string; supportsThinking: boolean }>;
+  defaultModel: string;
+  numCtx: number;
+  defaults: { strategy: ChunkStrategy; preset: ChunkPreset; search: SearchSettings };
+  presets: Record<ChunkPreset, { chunkTokens: number; overlapTokens: number }>;
+  indexes: IndexStatus[];
+  documents: Array<{ id: string; path: string; title: string }>;
+  questions: Array<{ id: string; category: QuestionCategory; question: string }>;
+  /** Set when Ollama or the tool server couldn't be reached; the page shows it. */
+  problem?: string;
+}
+
+/** GET /api/map: the embedding map's points for one index. */
+export interface MapResponse {
+  strategy: ChunkStrategy;
+  preset: string;
+  variance: [number, number];
+  chunks: Array<{ chunkId: string; docId: string; x: number; y: number }>;
+}
+
+// ---------------------------------------------------------------------------
 // The activity log
 // ---------------------------------------------------------------------------
 
